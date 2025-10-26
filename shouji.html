@@ -1,0 +1,2628 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' data:; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'">
+    <title>太玄文化 - 易学大师个人品牌</title>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://images.unsplash.com">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="preload" as="image" href="https://images.unsplash.com/photo-1518839577686-2e50ed1d5b73?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80" fetchpriority="high">
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com">
+    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+    <link rel="dns-prefetch" href="https://images.unsplash.com">
+    <link rel="manifest" href="manifest.json">
+    <style>
+        :root {
+            --primary-color: #8C6E54;
+            --secondary-color: #A67C52;
+            --accent-color: #D9B382;
+            --dark-color: #3D2B1F;
+            --light-color: #F5F1E8;
+            --text-color: #2C2416;
+            --highlight-color: #BF4342;
+            --admin-color: #4A235A;
+            --admin-light: #6C3483;
+            --bronze-color: #B08D57;
+            --silver-color: #C0C0C0;
+            --gold-color: #D4AF37;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            font-family: "Noto Serif SC", "Source Han Serif SC", "SimSun", serif;
+            background-color: var(--light-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            overflow-x: hidden;
+            touch-action: manipulation;
+        }
+        
+        .container {
+            width: 100%;
+            padding: 0 15px;
+        }
+        
+        /* 移动端导航栏 */
+        .mobile-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background-color: var(--dark-color);
+            color: var(--light-color);
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+        
+        .mobile-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+        }
+        
+        .mobile-logo {
+            font-family: "Ma Shan Zheng", "STKaiti", "KaiTi", cursive;
+            font-size: 1.8rem;
+            color: var(--accent-color);
+        }
+        
+        .mobile-menu-btn {
+            background: none;
+            border: none;
+            color: var(--light-color);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+        
+        .mobile-menu {
+            position: fixed;
+            top: 0;
+            left: -100%;
+            width: 80%;
+            height: 100vh;
+            background-color: var(--dark-color);
+            z-index: 1001;
+            transition: left 0.3s ease;
+            overflow-y: auto;
+        }
+        
+        .mobile-menu.active {
+            left: 0;
+        }
+        
+        .mobile-menu-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .mobile-menu-close {
+            background: none;
+            border: none;
+            color: var(--light-color);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+        
+        .mobile-menu-items {
+            padding: 20px 0;
+        }
+        
+        .mobile-menu-item {
+            display: block;
+            padding: 15px 20px;
+            color: var(--light-color);
+            text-decoration: none;
+            font-size: 1.1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .mobile-menu-item.active {
+            color: var(--accent-color);
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+        
+        .mobile-auth {
+            padding: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .mobile-login-btn {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(to right, var(--accent-color), var(--secondary-color));
+            color: var(--dark-color);
+            border: none;
+            border-radius: 25px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+        }
+        
+        .mobile-user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--accent-color);
+            margin-bottom: 15px;
+        }
+        
+        .mobile-user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-color), var(--secondary-color));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--dark-color);
+            font-weight: bold;
+            position: relative;
+        }
+        /* VIP徽标（悬浮显示） */
+        .mobile-user-avatar.vip::after {
+            content: 'VIP';
+            position: absolute;
+            right: -6px;
+            bottom: -6px;
+            background: var(--gold-color);
+            color: var(--dark-color);
+            font-size: 0.65rem;
+            padding: 2px 6px;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        .mobile-user-avatar.vip:hover::after {
+            opacity: 1;
+        }
+        
+        .mobile-admin-avatar {
+            background: linear-gradient(135deg, var(--admin-light), var(--admin-color));
+        }
+        
+        .mobile-logout-btn {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            background: transparent;
+            color: var(--accent-color);
+            border: 1px solid var(--accent-color);
+            border-radius: 20px;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+        
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            display: none;
+        }
+        
+        .overlay.active {
+            display: block;
+        }
+        
+        /* 移动端内容区域 */
+        .mobile-content {
+            margin-top: 70px;
+            padding-bottom: 70px;
+        }
+        
+        /* 底部导航栏 */
+        .mobile-bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: var(--dark-color);
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0;
+            z-index: 999;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .mobile-nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: var(--light-color);
+            text-decoration: none;
+            font-size: 0.8rem;
+            flex: 1;
+        }
+        
+        .mobile-nav-item.active {
+            color: var(--accent-color);
+        }
+        
+        .mobile-nav-icon {
+            font-size: 1.2rem;
+            margin-bottom: 4px;
+        }
+        
+        /* 移动端页面样式 */
+        .mobile-page {
+            display: none;
+            padding: 20px 0;
+        }
+        
+        .mobile-page.active {
+            display: block;
+        }
+        
+        .mobile-section-title {
+            font-family: "Ma Shan Zheng", "STKaiti", "KaiTi", cursive;
+            font-size: 1.8rem;
+            text-align: center;
+            margin-bottom: 25px;
+            color: var(--dark-color);
+            position: relative;
+        }
+        
+        .mobile-section-title::after {
+            content: "";
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 3px;
+            background: linear-gradient(to right, transparent, var(--accent-color), transparent);
+        }
+        
+        /* 首页英雄区域 */
+        .mobile-hero {
+            position: relative;
+            height: 60vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: var(--light-color);
+            overflow: hidden;
+            margin-bottom: 30px;
+            border-radius: 0 0 20px 20px;
+        }
+        
+        .mobile-hero-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                linear-gradient(rgba(61, 43, 31, 0.75), rgba(61, 43, 31, 0.85)), 
+                url('https://images.unsplash.com/photo-1518839577686-2e50ed1d5b73?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80') center/cover no-repeat;
+            z-index: -1;
+        }
+        
+        .mobile-hero-content {
+            position: relative;
+            z-index: 2;
+            max-width: 90%;
+        }
+        
+        .mobile-hero-title {
+            font-family: "Ma Shan Zheng", "STKaiti", "KaiTi", cursive;
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+        }
+        
+        .mobile-hero-subtitle {
+            font-size: 1.1rem;
+            margin-bottom: 30px;
+            font-weight: 300;
+        }
+        
+        .mobile-cta-button {
+            display: inline-block;
+            background-color: var(--highlight-color);
+            color: var(--light-color);
+            padding: 12px 25px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-size: 1.1rem;
+            transition: all 0.3s;
+            border: 2px solid var(--highlight-color);
+            font-weight: 500;
+        }
+        
+        .mobile-cta-button:hover {
+            background-color: transparent;
+            color: var(--highlight-color);
+        }
+        
+        /* 移动端卡片样式 */
+        .mobile-card {
+            background-color: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            margin-bottom: 20px;
+            border: 1px solid rgba(140, 110, 84, 0.1);
+        }
+        
+        .mobile-card-header {
+            padding: 20px;
+            text-align: center;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+        }
+        
+        .mobile-card-body {
+            padding: 20px;
+        }
+        
+        .mobile-card-title {
+            font-size: 1.3rem;
+            margin-bottom: 10px;
+            color: var(--dark-color);
+        }
+        
+        .mobile-card-text {
+            margin-bottom: 15px;
+            color: #666;
+        }
+        
+        .mobile-card-price {
+            font-size: 1.8rem;
+            text-align: center;
+            margin: 15px 0;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+        
+        .mobile-card-button {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+            color: white;
+            text-align: center;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+        }
+        
+        /* 讲师介绍 */
+        .mobile-teacher-card {
+            background-color: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            margin-bottom: 20px;
+        }
+        
+        .mobile-teacher-image {
+            height: 200px;
+            background: linear-gradient(135deg, var(--dark-color), var(--primary-color));
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .mobile-teacher-image::after {
+            content: "荡";
+            font-size: 5rem;
+            color: rgba(255, 255, 255, 0.2);
+            font-family: "Ma Shan Zheng", "STKaiti", "KaiTi", cursive;
+        }
+        
+        .mobile-teacher-info {
+            padding: 20px;
+        }
+        
+        .mobile-teacher-name {
+            font-family: "Ma Shan Zheng", "STKaiti", "KaiTi", cursive;
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+            color: var(--dark-color);
+        }
+        
+        .mobile-teacher-title {
+            font-size: 1.1rem;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+        }
+        
+        .mobile-teacher-quote {
+            font-style: italic;
+            margin-bottom: 15px;
+            padding: 15px;
+            background-color: rgba(217, 179, 130, 0.1);
+            border-left: 3px solid var(--accent-color);
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .mobile-teacher-expertise {
+            margin-top: 20px;
+        }
+        
+        .mobile-expertise-title {
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+            color: var(--dark-color);
+        }
+        
+        .mobile-expertise-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .mobile-expertise-item {
+            background-color: var(--light-color);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            border: 1px solid rgba(140, 110, 84, 0.2);
+        }
+        
+        /* 聊天区域（替换原搜索区域） */
+        .mobile-chat-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+            padding: 12px;
+        }
+        .mobile-chat-header {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+        .mobile-chat-messages {
+            max-height: 280px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            border-radius: 12px;
+            padding: 10px;
+            background: #fafafa;
+        }
+        .mobile-chat-message {
+            display: inline-block;
+            padding: 10px 12px;
+            border-radius: 12px;
+            margin: 6px 0;
+            max-width: 80%;
+            line-height: 1.4;
+            word-break: break-word;
+        }
+        .mobile-chat-message.user {
+            background: #e6f0ff;
+            color: #17385f;
+            align-self: flex-end;
+        }
+        .mobile-chat-message.assistant {
+            background: #f2fbf2;
+            color: #1d4d1d;
+            align-self: flex-start;
+        }
+        .mobile-chat-inputbar {
+            display: flex;
+            gap: 8px;
+        }
+        #mobileChatInput {
+            flex: 1;
+            padding: 12px 14px;
+            font-size: 1rem;
+            border: 2px solid var(--primary-color);
+            border-radius: 12px;
+            outline: none;
+        }
+        #mobileChatSend {
+            background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 12px;
+            cursor: pointer;
+        }
+        .mobile-chat-tips {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        .mobile-search-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .mobile-search-tag {
+            background-color: rgba(140, 110, 84, 0.1);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+        
+        /* 移动端弹窗 */
+        .mobile-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 1002;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .mobile-modal.active {
+            display: flex;
+        }
+        
+        .mobile-modal-content {
+            background-color: white;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 400px;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+        }
+        
+        .mobile-modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .mobile-modal-title {
+            font-family: "Ma Shan Zheng", "STKaiti", "KaiTi", cursive;
+            font-size: 1.5rem;
+            color: var(--dark-color);
+        }
+        
+        .mobile-modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #666;
+        }
+        
+        .mobile-modal-body {
+            padding: 20px;
+        }
+        
+        /* 登录表单 */
+        .mobile-login-tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #eee;
+        }
+        
+        .mobile-login-tab {
+            flex: 1;
+            text-align: center;
+            padding: 12px;
+            cursor: pointer;
+            color: #666;
+            font-weight: 500;
+        }
+        
+        .mobile-login-tab.active {
+            color: var(--primary-color);
+            border-bottom: 3px solid var(--primary-color);
+        }
+        
+        .mobile-login-form {
+            display: none;
+        }
+        
+        .mobile-login-form.active {
+            display: block;
+        }
+        
+        .mobile-form-group {
+            margin-bottom: 15px;
+        }
+        
+        .mobile-form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--dark-color);
+        }
+        
+        .mobile-form-group input, .mobile-form-group select, .mobile-form-group textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-family: inherit;
+            color: #222;
+            background-color: #ffffff;
+            caret-color: #222;
+        }
+        .mobile-form-group input::placeholder {
+            color: #666;
+        }
+        /* 移动端赞助码输入可视性 */
+        #vipActivationInput {
+            color: #222;
+            background-color: #ffffff;
+            caret-color: #222;
+        }
+        #vipActivationInput::placeholder { color: #666; }
+        
+        .mobile-form-group input:focus, .mobile-form-group select:focus, .mobile-form-group textarea:focus {
+            border-color: var(--primary-color);
+            outline: none;
+        }
+        
+        .mobile-login-submit {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1.1rem;
+            font-weight: 500;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        
+        /* 联系信息 */
+        .mobile-contact-info {
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .mobile-qq-info {
+            font-size: 1.5rem;
+            color: var(--highlight-color);
+            font-weight: bold;
+            padding: 15px;
+            background-color: rgba(191, 67, 66, 0.1);
+            border-radius: 8px;
+            display: inline-block;
+            margin: 15px 0;
+        }
+        
+        .mobile-contact-instructions {
+            color: #666;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        
+        /* 课程进度 */
+        .mobile-progress-container {
+            margin-bottom: 15px;
+        }
+        
+        .mobile-progress-bar {
+            height: 8px;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 5px;
+        }
+        
+        .mobile-progress-fill {
+            height: 100%;
+            background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+            border-radius: 4px;
+        }
+        
+        .mobile-progress-text {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        /* 管理员面板样式 */
+        .mobile-admin-tabs {
+            display: flex;
+            overflow-x: auto;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #eee;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .mobile-admin-tab {
+            padding: 12px 20px;
+            white-space: nowrap;
+            cursor: pointer;
+            color: #666;
+            font-weight: 500;
+            border-bottom: 3px solid transparent;
+        }
+        
+        .mobile-admin-tab.active {
+            color: var(--admin-color);
+            border-bottom: 3px solid var(--admin-color);
+        }
+        
+        .mobile-admin-panel {
+            display: none;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            margin-bottom: 20px;
+            border: 1px solid rgba(140, 110, 84, 0.1);
+        }
+        
+        .mobile-admin-panel.active {
+            display: block;
+        }
+        
+        .mobile-panel-title {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: var(--admin-color);
+            font-family: "Ma Shan Zheng", "STKaiti", "KaiTi", cursive;
+            border-bottom: 2px solid rgba(74, 35, 90, 0.2);
+            padding-bottom: 10px;
+        }
+        
+        .mobile-admin-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .mobile-stat-card {
+            background: linear-gradient(135deg, var(--admin-light), var(--admin-color));
+            color: white;
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        }
+        
+        .mobile-stat-number {
+            font-size: 1.8rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .mobile-stat-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        
+        .mobile-search-bar {
+            display: flex;
+            margin-bottom: 20px;
+            gap: 10px;
+        }
+        
+        .mobile-search-bar input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+        
+        .mobile-search-bar button {
+            background: linear-gradient(to right, var(--admin-light), var(--admin-color));
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        
+        .mobile-add-new-btn {
+            background: linear-gradient(to right, var(--admin-light), var(--admin-color));
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            margin-bottom: 20px;
+            width: 100%;
+        }
+        
+        .mobile-admin-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+        }
+        
+        .mobile-admin-table th, .mobile-admin-table td {
+            padding: 12px 8px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .mobile-admin-table th {
+            background-color: rgba(74, 35, 90, 0.1);
+            color: var(--admin-color);
+            font-weight: 600;
+        }
+        
+        .mobile-action-buttons {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .mobile-edit-btn, .mobile-delete-btn, .mobile-save-btn, .mobile-cancel-btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+        
+        .mobile-edit-btn {
+            background: rgba(217, 179, 130, 0.2);
+            color: var(--secondary-color);
+        }
+        
+        .mobile-delete-btn {
+            background: rgba(191, 67, 66, 0.2);
+            color: var(--highlight-color);
+        }
+        
+        .mobile-save-btn {
+            background: rgba(74, 35, 90, 0.2);
+            color: var(--admin-color);
+        }
+        
+        .mobile-cancel-btn {
+            background: rgba(102, 102, 102, 0.2);
+            color: #666;
+        }
+        
+        /* 课程等级样式 */
+        .mobile-card.bronze .mobile-card-header {
+            background: linear-gradient(135deg, var(--bronze-color), #8C6E54);
+        }
+        
+        .mobile-card.silver .mobile-card-header {
+            background: linear-gradient(135deg, var(--silver-color), #A0A0A0);
+        }
+        
+        .mobile-card.gold .mobile-card-header {
+            background: linear-gradient(135deg, var(--gold-color), #B8860B);
+        }
+        
+        /* 响应式调整 */
+        @media (min-width: 768px) {
+            .mobile-header, .mobile-bottom-nav {
+                display: none;
+            }
+            
+            .mobile-content {
+                margin-top: 0;
+                padding-bottom: 0;
+            }
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- 移动端导航栏 -->
+    <div class="mobile-header">
+        <div class="mobile-nav">
+            <div class="mobile-logo">太玄文化</div>
+            <button class="mobile-menu-btn">☰</button>
+        </div>
+    </div>
+    
+    <!-- 移动端菜单 -->
+    <div class="mobile-menu">
+        <div class="mobile-menu-header">
+            <div class="mobile-logo">太玄文化</div>
+            <button class="mobile-menu-close">✕</button>
+        </div>
+        <div class="mobile-menu-items">
+            <a href="#" class="mobile-menu-item active" data-page="home">首页</a>
+            <a href="#" class="mobile-menu-item" data-page="teacher">讲师介绍</a>
+            <a href="#" class="mobile-menu-item" data-page="courses">课程</a>
+            <a href="#" class="mobile-menu-item" data-page="sponsor">会员赞助</a>
+            <a href="#" class="mobile-menu-item" data-page="public-classes">公众课</a>
+            <a href="#" class="mobile-menu-item" data-page="my-courses" id="mobileMyCoursesLink" style="display: none;">我的课程</a>
+            <a href="#" class="mobile-menu-item" data-page="admin-panel" id="mobileAdminPanelLink" style="display: none;">管理面板</a>
+            <a href="#" class="mobile-menu-item" data-page="contact">联系我们</a>
+        </div>
+        <div class="mobile-auth" id="mobileAuthSection">
+            <button class="mobile-login-btn" id="mobileLoginBtn">会员登录</button>
+        </div>
+    </div>
+    
+    <!-- 遮罩层 -->
+    <div class="overlay"></div>
+    
+    <!-- 移动端内容区域 -->
+    <div class="mobile-content">
+        <!-- 首页 -->
+        <div class="mobile-page active" id="home-page">
+            <div class="mobile-hero">
+                <div class="mobile-hero-background"></div>
+                <div class="mobile-hero-content">
+                    <h1 class="mobile-hero-title">太玄文化</h1>
+                    <p class="mobile-hero-subtitle">探索玄学奥秘，传承千年智慧，开启人生新境界</p>
+                    <a href="#" class="mobile-cta-button" data-page="courses">探索课程</a>
+                </div>
+            </div>
+            
+            <div class="container">
+                <h2 class="mobile-section-title">精选课程</h2>
+                
+                <div class="mobile-card bronze">
+                    <div class="mobile-card-header">
+                        <h3>易经入门</h3>
+                    </div>
+                    <div class="mobile-card-body">
+                        <p class="mobile-card-text">从零开始学习易经基础知识，了解八卦、六十四卦的基本含义与应用，掌握易经核心思想。</p>
+                        <div class="mobile-card-price">¥299</div>
+                        <button class="mobile-card-button purchase-btn" data-product="易经入门">立即购买</button>
+                    </div>
+                </div>
+                
+                <div class="mobile-card silver">
+                    <div class="mobile-card-header">
+                        <h3>八字命理精讲</h3>
+                    </div>
+                    <div class="mobile-card-body">
+                        <p class="mobile-card-text">深入学习八字命理，掌握排盘、解读技巧，洞悉人生轨迹，预测运势走向。</p>
+                        <div class="mobile-card-price">¥599</div>
+                        <button class="mobile-card-button purchase-btn" data-product="八字命理精讲">立即购买</button>
+                    </div>
+                </div>
+                
+                <div class="mobile-card gold">
+                    <div class="mobile-card-header">
+                        <h3>风水实战应用</h3>
+                    </div>
+                    <div class="mobile-card-body">
+                        <p class="mobile-card-text">学习风水布局原理，掌握家居、办公环境优化方法，提升生活品质与事业运势。</p>
+                        <div class="mobile-card-price">¥799</div>
+                        <button class="mobile-card-button purchase-btn" data-product="风水实战应用">立即购买</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 讲师介绍 -->
+        <div class="mobile-page" id="teacher-page">
+            <div class="container">
+                <h2 class="mobile-section-title">讲师介绍</h2>
+                
+                <div class="mobile-teacher-card">
+                    <div class="mobile-teacher-image"></div>
+                    <div class="mobile-teacher-info">
+                        <h2 class="mobile-teacher-name">荡气</h2>
+                        <p class="mobile-teacher-title">太玄文化创始人 · 易学研究者</p>
+                        
+                        <blockquote class="mobile-teacher-quote">
+                            "荡者阴阳气也，阴阳气气而叠生四象也"
+                        </blockquote>
+                        
+                        <p>荡气讲师自幼受家族乡老启蒙，研习黄老之学，对传统文化有深厚情感。自习易数载至今已有五年，期间深入研究各家易学，包括梅花易数、京氏易等。在广泛涉猎的基础上，逐渐领悟到"用少而精"的治学之道，专注于深入研究少数核心领域，追求精专而非泛泛。</p>
+                        
+                        <div class="mobile-teacher-expertise">
+                            <h3 class="mobile-expertise-title">专长领域</h3>
+                            <div class="mobile-expertise-list">
+                                <div class="mobile-expertise-item">太乙神数</div>
+                                <div class="mobile-expertise-item">太玄数</div>
+                                <div class="mobile-expertise-item">易经哲学</div>
+                                <div class="mobile-expertise-item">黄老之学</div>
+                                <div class="mobile-expertise-item">梅花易数</div>
+                                <div class="mobile-expertise-item">京氏易学</div>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-top: 20px; padding: 15px; background-color: rgba(191, 67, 66, 0.05); border-radius: 8px; border-left: 3px solid var(--highlight-color);">
+                            <h3 style="font-size: 1.2rem; margin-bottom: 10px; color: var(--dark-color);">著作成果</h3>
+                            <p>荡气讲师潜心研究，著有《太玄入门》一篇，系统梳理太玄数理论基础，为初学者提供清晰的学习路径，深受学员好评。</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 课程页面 -->
+        <div class="mobile-page" id="courses-page">
+            <div class="container">
+                <h2 class="mobile-section-title">课程搜索</h2>
+                
+                <div class="mobile-chat-container">
+                    <div class="mobile-chat-header">AI助理</div>
+                    <div class="mobile-chat-messages" id="mobileChatMessages"></div>
+                    <div class="mobile-chat-inputbar">
+                        <input type="text" id="mobileChatInput" placeholder="问课程、学习路径、讲师……">
+                        <button id="mobileChatSend">发送</button>
+                    </div>
+                    <div class="mobile-chat-tips">可直接提问，或点击下方标签快捷提问。</div>
+                </div>
+                
+                <div class="mobile-search-tags">
+                    <div class="mobile-search-tag">易经</div>
+                    <div class="mobile-search-tag">八字</div>
+                    <div class="mobile-search-tag">风水</div>
+                    <div class="mobile-search-tag">梅花易数</div>
+                    <div class="mobile-search-tag">太乙神数</div>
+                    <div class="mobile-search-tag">黄老之学</div>
+                </div>
+                
+                <h2 class="mobile-section-title" style="margin-top: 30px;">所有课程</h2>
+                
+                <div class="mobile-card bronze">
+                    <div class="mobile-card-header">
+                        <h3>易经入门</h3>
+                    </div>
+                    <div class="mobile-card-body">
+                        <p class="mobile-card-text">从零开始学习易经基础知识，了解八卦、六十四卦的基本含义与应用，掌握易经核心思想。</p>
+                        <div class="mobile-card-price">¥299</div>
+                        <button class="mobile-card-button purchase-btn" data-product="易经入门">立即购买</button>
+                    </div>
+                </div>
+                
+                <div class="mobile-card silver">
+                    <div class="mobile-card-header">
+                        <h3>八字命理精讲</h3>
+                    </div>
+                    <div class="mobile-card-body">
+                        <p class="mobile-card-text">深入学习八字命理，掌握排盘、解读技巧，洞悉人生轨迹，预测运势走向。</p>
+                        <div class="mobile-card-price">¥599</div>
+                        <button class="mobile-card-button purchase-btn" data-product="八字命理精讲">立即购买</button>
+                    </div>
+                </div>
+                
+                <div class="mobile-card gold">
+                    <div class="mobile-card-header">
+                        <h3>风水实战应用</h3>
+                    </div>
+                    <div class="mobile-card-body">
+                        <p class="mobile-card-text">学习风水布局原理，掌握家居、办公环境优化方法，提升生活品质与事业运势。</p>
+                        <div class="mobile-card-price">¥799</div>
+                        <button class="mobile-card-button purchase-btn" data-product="风水实战应用">立即购买</button>
+                    </div>
+                </div>
+                
+                <div class="mobile-card silver">
+                    <div class="mobile-card-header">
+                        <h3>梅花易数精解</h3>
+                    </div>
+                    <div class="mobile-card-body">
+                        <p class="mobile-card-text">掌握梅花易数的起卦、解卦方法，应用于日常生活决策。</p>
+                        <div class="mobile-card-price">¥499</div>
+                        <button class="mobile-card-button purchase-btn" data-product="梅花易数精解">立即购买</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 会员赞助 -->
+        <div class="mobile-page" id="sponsor-page">
+            <div class="container">
+                <h2 class="mobile-section-title">会员赞助计划</h2>
+                
+                <div class="mobile-card">
+                    <div class="mobile-card-header">
+                        <h3>月度赞助</h3>
+                    </div>
+                    <div class="mobile-card-body">
+                        <div class="mobile-card-price">¥68<span style="font-size: 1rem;">/月</span></div>
+                        <ul style="list-style: none; margin: 20px 0;">
+                            <li style="padding: 8px 0; border-bottom: 1px solid #f0f0f0;">✓ 月度会员专属内容</li>
+                            <li style="padding: 8px 0; border-bottom: 1px solid #f0f0f0;">✓ 参与线上交流活动</li>
+                            <li style="padding: 8px 0; border-bottom: 1px solid #f0f0f0;">✓ 每月一次答疑机会</li>
+                            <li style="padding: 8px 0; border-bottom: 1px solid #f0f0f0;">✓ 最新课程资讯优先获取</li>
+                            <li style="padding: 8px 0;">✓ 会员专属社区访问权</li>
+                        </ul>
+                        <button class="mobile-card-button purchase-btn" data-product="月度赞助">立即赞助</button>
+                    </div>
+                </div>
+                
+                <div class="mobile-card">
+                    <div class="mobile-card-header" style="background: linear-gradient(135deg, var(--dark-color), var(--highlight-color));">
+                        <h3>年度会员</h3>
+                    </div>
+                    <div class="mobile-card-body">
+                        <div class="mobile-card-price">¥699<span style="font-size: 1rem;">/年</span></div>
+                        <ul style="list-style: none; margin: 20px 0;">
+                            <li style="padding: 8px 0; border-bottom: 1px solid #f0f0f0;">✓ 全年会员专属内容</li>
+                            <li style="padding: 8px 0; border-bottom: 1px solid #f0f0f0;">✓ 免费参与所有公开课</li>
+                            <li style="padding: 8px 0; border-bottom: 1px solid #f0f0f0;">✓ 优先答疑权</li>
+                            <li style="padding: 8px 0; border-bottom: 1px solid #f0f0f0;">✓ 会员专属礼品</li>
+                            <li style="padding: 8px 0; border-bottom: 1px solid #f0f0f0;">✓ 个性化咨询服务8折</li>
+                            <li style="padding: 8px 0; border-bottom: 1px solid #f0f0f0;">✓ 年度会员专属证书</li>
+                            <li style="padding: 8px 0; border-bottom: 1px solid #f0f0f0;">✓ 新品课程优先体验权</li>
+                            <li style="padding: 8px 0;">✓ 专属年度总结报告</li>
+                        </ul>
+                        <button class="mobile-card-button purchase-btn" data-product="年度会员">立即赞助</button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+        
+        <!-- 公众课 -->
+        <div class="mobile-page" id="public-classes-page">
+            <div class="container">
+                <h2 class="mobile-section-title">公众课日程</h2>
+                
+                <div class="mobile-card">
+                    <div class="mobile-card-header">
+                        <h3>易经基础公开课</h3>
+                    </div>
+                    <div class="mobile-card-body">
+                        <p><strong>时间：</strong>每周三 20:00-21:30</p>
+                        <p><strong>平台：</strong>腾讯会议</p>
+                        <p>免费公开课，讲解易经基础知识与应用，适合零基础学员。</p>
+                        <button class="mobile-card-button purchase-btn" data-product="易经基础公开课">预约参加</button>
+                    </div>
+                </div>
+                
+                <div class="mobile-card">
+                    <div class="mobile-card-header">
+                        <h3>八字命理入门课</h3>
+                    </div>
+                    <div class="mobile-card-body">
+                        <p><strong>时间：</strong>每周五 19:30-21:00</p>
+                        <p><strong>平台：</strong>钉钉直播</p>
+                        <p>免费入门课，了解八字命理的基本概念与排盘方法。</p>
+                        <button class="mobile-card-button purchase-btn" data-product="八字命理入门课">预约参加</button>
+                    </div>
+                </div>
+                
+                <div class="mobile-card">
+                    <div class="mobile-card-header">
+                        <h3>家居风水讲座</h3>
+                    </div>
+                    <div class="mobile-card-body">
+                        <p><strong>时间：</strong>每月第二个周日 15:00-16:30</p>
+                        <p><strong>平台：</strong>Zoom会议</p>
+                        <p>免费讲座，学习家居风水布局技巧，优化居住环境。</p>
+                        <button class="mobile-card-button purchase-btn" data-product="家居风水讲座">预约参加</button>
+                    </div>
+                </div>
+                
+                <div class="mobile-card">
+                    <div class="mobile-card-header">
+                        <h3>易学答疑专场</h3>
+                    </div>
+                    <div class="mobile-card-body">
+                        <p><strong>时间：</strong>每月最后一个周六 10:00-11:30</p>
+                        <p><strong>平台：</strong>微信视频号</p>
+                        <p>免费答疑，解答易学学习中的疑问，分享实用技巧。</p>
+                        <button class="mobile-card-button purchase-btn" data-product="易学答疑专场">预约参加</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 我的课程 -->
+        <div class="mobile-page" id="my-courses-page">
+            <div class="container">
+                <h2 class="mobile-section-title">我的课程</h2>
+                
+                <div class="mobile-admin-stats">
+                    <div class="mobile-stat-card">
+                        <div class="mobile-stat-number">4</div>
+                        <div class="mobile-stat-label">总课程数</div>
+                    </div>
+                    <div class="mobile-stat-card">
+                        <div class="mobile-stat-number">1</div>
+                        <div class="mobile-stat-label">已完成课程</div>
+                    </div>
+                    <div class="mobile-stat-card">
+                        <div class="mobile-stat-number">55%</div>
+                        <div class="mobile-stat-label">总体进度</div>
+                    </div>
+                    <div class="mobile-stat-card">
+                        <div class="mobile-stat-number">57</div>
+                        <div class="mobile-stat-label">学习时长(小时)</div>
+                    </div>
+                </div>
+                
+                <div class="mobile-card">
+                    <div class="mobile-card-body">
+                        <h3 class="mobile-card-title">易经入门精讲</h3>
+                        <div class="mobile-progress-container">
+                            <div class="mobile-progress-bar">
+                                <div class="mobile-progress-fill" style="width: 85%"></div>
+                            </div>
+                            <div class="mobile-progress-text">
+                                <span>学习进度</span>
+                                <span>85%</span>
+                            </div>
+                        </div>
+                        <p><strong>讲师：</strong>荡气</p>
+                        <p><strong>上次学习：</strong>2023-11-15</p>
+                        <p><strong>已完成课时：</strong>10/12</p>
+                        <button class="mobile-card-button" style="margin-top: 15px;">继续学习</button>
+                    </div>
+                </div>
+                
+                <div class="mobile-card">
+                    <div class="mobile-card-body">
+                        <h3 class="mobile-card-title">八字命理实战</h3>
+                        <div class="mobile-progress-container">
+                            <div class="mobile-progress-bar">
+                                <div class="mobile-progress-fill" style="width: 60%"></div>
+                            </div>
+                            <div class="mobile-progress-text">
+                                <span>学习进度</span>
+                                <span>60%</span>
+                            </div>
+                        </div>
+                        <p><strong>讲师：</strong>荡气</p>
+                        <p><strong>上次学习：</strong>2023-11-10</p>
+                        <p><strong>已完成课时：</strong>12/20</p>
+                        <button class="mobile-card-button" style="margin-top: 15px;">继续学习</button>
+                    </div>
+                </div>
+                
+                <div class="mobile-card">
+                    <div class="mobile-card-body">
+                        <h3 class="mobile-card-title">风水布局应用</h3>
+                        <div class="mobile-progress-container">
+                            <div class="mobile-progress-bar">
+                                <div class="mobile-progress-fill" style="width: 45%"></div>
+                            </div>
+                            <div class="mobile-progress-text">
+                                <span>学习进度</span>
+                                <span>45%</span>
+                            </div>
+                        </div>
+                        <p><strong>讲师：</strong>荡气</p>
+                        <p><strong>上次学习：</strong>2023-11-05</p>
+                        <p><strong>已完成课时：</strong>7/15</p>
+                        <button class="mobile-card-button" style="margin-top: 15px;">继续学习</button>
+                    </div>
+                </div>
+                
+                <div class="mobile-card">
+                    <div class="mobile-card-body">
+                        <h3 class="mobile-card-title">梅花易数精解</h3>
+                        <div class="mobile-progress-container">
+                            <div class="mobile-progress-bar">
+                                <div class="mobile-progress-fill" style="width: 30%"></div>
+                            </div>
+                            <div class="mobile-progress-text">
+                                <span>学习进度</span>
+                                <span>30%</span>
+                            </div>
+                        </div>
+                        <p><strong>讲师：</strong>荡气</p>
+                        <p><strong>上次学习：</strong>2023-10-28</p>
+                        <p><strong>已完成课时：</strong>5/18</p>
+                        <button class="mobile-card-button" style="margin-top: 15px;">继续学习</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 管理面板 -->
+        <div class="mobile-page" id="admin-panel-page">
+            <div class="container">
+                <h2 class="mobile-section-title">管理面板</h2>
+                
+                <div class="mobile-admin-tabs">
+                    <div class="mobile-admin-tab active" data-tab="students">学员管理</div>
+                    <div class="mobile-admin-tab" data-tab="courses">课程管理</div>
+                    <div class="mobile-admin-tab" data-tab="groups">分组管理</div>
+                    <div class="mobile-admin-tab" data-tab="stats">数据统计</div>
+                    <div class="mobile-admin-tab" data-tab="music">音乐</div>
+                    <div class="mobile-admin-tab" data-tab="vipcodes">赞助激活码</div>
+                </div>
+                
+                <!-- 学员管理面板 -->
+                <div class="mobile-admin-panel active" id="mobile-students-panel">
+                    <h3 class="mobile-panel-title">学员管理</h3>
+                    
+                    <div class="mobile-admin-stats">
+                        <div class="mobile-stat-card">
+                            <div class="mobile-stat-number">5</div>
+                            <div class="mobile-stat-label">总学员数</div>
+                        </div>
+                        <div class="mobile-stat-card">
+                            <div class="mobile-stat-number">4</div>
+                            <div class="mobile-stat-label">活跃学员</div>
+                        </div>
+                        <div class="mobile-stat-card">
+                            <div class="mobile-stat-number">2</div>
+                            <div class="mobile-stat-label">本月新增</div>
+                        </div>
+                        <div class="mobile-stat-card">
+                            <div class="mobile-stat-number">59%</div>
+                            <div class="mobile-stat-label">平均进度</div>
+                        </div>
+                    </div>
+
+                    <div class="mobile-search-bar">
+                        <input type="text" placeholder="搜索学员姓名、邮箱或分组...">
+                        <button>搜索</button>
+                    </div>
+
+                    <button class="mobile-add-new-btn">添加新学员</button>
+
+                    <table class="mobile-admin-table">
+                        <thead>
+                            <tr>
+                                <th>姓名</th>
+                                <th>分组</th>
+                                <th>进度</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>张三</td>
+                                <td>初级班</td>
+                                <td>
+                                    <div class="mobile-progress-bar">
+                                        <div class="mobile-progress-fill" style="width: 65%"></div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="mobile-action-buttons">
+                                        <button class="mobile-edit-btn">编辑</button>
+                                        <button class="mobile-delete-btn">删除</button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>李四</td>
+                                <td>进阶班</td>
+                                <td>
+                                    <div class="mobile-progress-bar">
+                                        <div class="mobile-progress-fill" style="width: 82%"></div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="mobile-action-buttons">
+                                        <button class="mobile-edit-btn">编辑</button>
+                                        <button class="mobile-delete-btn">删除</button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>王五</td>
+                                <td>VIP班</td>
+                                <td>
+                                    <div class="mobile-progress-bar">
+                                        <div class="mobile-progress-fill" style="width: 45%"></div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="mobile-action-buttons">
+                                        <button class="mobile-edit-btn">编辑</button>
+                                        <button class="mobile-delete-btn">删除</button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>赵六</td>
+                                <td>未分组</td>
+                                <td>
+                                    <div class="mobile-progress-bar">
+                                        <div class="mobile-progress-fill" style="width: 30%"></div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="mobile-action-buttons">
+                                        <button class="mobile-edit-btn">编辑</button>
+                                        <button class="mobile-delete-btn">删除</button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>钱七</td>
+                                <td>高级班</td>
+                                <td>
+                                    <div class="mobile-progress-bar">
+                                        <div class="mobile-progress-fill" style="width: 75%"></div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="mobile-action-buttons">
+                                        <button class="mobile-edit-btn">编辑</button>
+                                        <button class="mobile-delete-btn">删除</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- 课程管理面板 -->
+                <div class="mobile-admin-panel" id="mobile-courses-panel">
+                    <h3 class="mobile-panel-title">课程管理</h3>
+                    
+                    <div class="mobile-admin-stats">
+                        <div class="mobile-stat-card">
+                            <div class="mobile-stat-number">3</div>
+                            <div class="mobile-stat-label">总课程数</div>
+                        </div>
+                        <div class="mobile-stat-card">
+                            <div class="mobile-stat-number">312</div>
+                            <div class="mobile-stat-label">总学员数</div>
+                        </div>
+                        <div class="mobile-stat-card">
+                            <div class="mobile-stat-number">65%</div>
+                            <div class="mobile-stat-label">平均进度</div>
+                        </div>
+                        <div class="mobile-stat-card">
+                            <div class="mobile-stat-number">¥8,632</div>
+                            <div class="mobile-stat-label">总收入</div>
+                        </div>
+                    </div>
+
+                    <div class="mobile-search-bar">
+                        <input type="text" placeholder="搜索课程名称...">
+                        <button>搜索</button>
+                    </div>
+
+                    <button class="mobile-add-new-btn">添加新课程</button>
+
+                    <table class="mobile-admin-table">
+                        <thead>
+                            <tr>
+                                <th>课程名称</th>
+                                <th>分类</th>
+                                <th>价格</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>易经入门</td>
+                                <td>易经基础</td>
+                                <td>¥299</td>
+                                <td>
+                                    <div class="mobile-action-buttons">
+                                        <button class="mobile-edit-btn">编辑</button>
+                                        <button class="mobile-delete-btn">删除</button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>八字命理精讲</td>
+                                <td>命理预测</td>
+                                <td>¥599</td>
+                                <td>
+                                    <div class="mobile-action-buttons">
+                                        <button class="mobile-edit-btn">编辑</button>
+                                        <button class="mobile-delete-btn">删除</button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>风水实战应用</td>
+                                <td>风水实践</td>
+                                <td>¥799</td>
+                                <td>
+                                    <div class="mobile-action-buttons">
+                                        <button class="mobile-edit-btn">编辑</button>
+                                        <button class="mobile-delete-btn">删除</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- 分组管理面板 -->
+                <div class="mobile-admin-panel" id="mobile-groups-panel">
+                    <h3 class="mobile-panel-title">分组管理</h3>
+                    
+                    <div class="mobile-admin-stats">
+                        <div class="mobile-stat-card">
+                            <div class="mobile-stat-number">4</div>
+                            <div class="mobile-stat-label">总分组数</div>
+                        </div>
+                        <div class="mobile-stat-card">
+                            <div class="mobile-stat-number">3</div>
+                            <div class="mobile-stat-label">平均人数</div>
+                        </div>
+                        <div class="mobile-stat-card">
+                            <div class="mobile-stat-number">5</div>
+                            <div class="mobile-stat-label">最大分组</div>
+                        </div>
+                        <div class="mobile-stat-card">
+                            <div class="mobile-stat-number">1</div>
+                            <div class="mobile-stat-label">未分组学员</div>
+                        </div>
+                    </div>
+
+                    <div class="mobile-search-bar">
+                        <input type="text" placeholder="搜索分组名称...">
+                        <button>搜索</button>
+                    </div>
+
+                    <button class="mobile-add-new-btn">添加新分组</button>
+
+                    <table class="mobile-admin-table">
+                        <thead>
+                            <tr>
+                                <th>分组名称</th>
+                                <th>学员数量</th>
+                                <th>负责人</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>初级班</td>
+                                <td>2</td>
+                                <td>荡气</td>
+                                <td>
+                                    <div class="mobile-action-buttons">
+                                        <button class="mobile-edit-btn">编辑</button>
+                                        <button class="mobile-delete-btn">删除</button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>进阶班</td>
+                                <td>1</td>
+                                <td>荡气</td>
+                                <td>
+                                    <div class="mobile-action-buttons">
+                                        <button class="mobile-edit-btn">编辑</button>
+                                        <button class="mobile-delete-btn">删除</button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>高级班</td>
+                                <td>1</td>
+                                <td>荡气</td>
+                                <td>
+                                    <div class="mobile-action-buttons">
+                                        <button class="mobile-edit-btn">编辑</button>
+                                        <button class="mobile-delete-btn">删除</button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>VIP班</td>
+                                <td>1</td>
+                                <td>荡气</td>
+                                <td>
+                                    <div class="mobile-action-buttons">
+                                        <button class="mobile-edit-btn">编辑</button>
+                                        <button class="mobile-delete-btn">删除</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- 数据统计面板 -->
+                <div class="mobile-admin-panel" id="mobile-stats-panel">
+                    <h3 class="mobile-panel-title">数据统计</h3>
+                    
+                    <div class="mobile-admin-stats">
+                        <div class="mobile-stat-card">
+                            <div class="mobile-stat-number">¥8,632</div>
+                            <div class="mobile-stat-label">总收入</div>
+                        </div>
+                        <div class="mobile-stat-card">
+                            <div class="mobile-stat-number">¥863</div>
+                            <div class="mobile-stat-label">本月收入</div>
+                        </div>
+                        <div class="mobile-stat-card">
+                            <div class="mobile-stat-number">59%</div>
+                            <div class="mobile-stat-label">课程完成率</div>
+                        </div>
+                        <div class="mobile-stat-card">
+                            <div class="mobile-stat-number">80%</div>
+                            <div class="mobile-stat-label">学员活跃率</div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 25px;">
+                        <h4 style="margin-bottom: 15px; color: var(--admin-color);">热门课程</h4>
+                </div>
+
+                <!-- 赞助激活码面板 -->
+                <div class="mobile-admin-panel" id="mobile-vipcodes-panel">
+                    <h3 class="mobile-panel-title">赞助会员激活码</h3>
+                    <button class="mobile-add-new-btn" id="vipNewMonthlyBtn">生成月度VIP激活码</button>
+                    <button class="mobile-add-new-btn" id="vipNewYearlyBtn" style="margin-left:8px;">生成年度VIP激活码</button>
+                    <table class="mobile-admin-table">
+                        <thead>
+                            <tr>
+                                <th>激活码</th>
+                                <th>类型</th>
+                                <th>状态</th>
+                                <th>发放给</th>
+                                <th>使用者</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="vipCodesTableBody">
+                            <tr id="vipCodesEmpty"><td colspan="6">暂无激活码</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                        <div style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid #eee;">
+                                <span>易经入门</span>
+                                <span style="color: var(--admin-color); font-weight: bold;">156人</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid #eee;">
+                                <span>八字命理精讲</span>
+                                <span style="color: var(--admin-color); font-weight: bold;">89人</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>风水实战应用</span>
+                                <span style="color: var(--admin-color); font-weight: bold;">67人</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 音乐设置面板 -->
+                <div class="mobile-admin-panel" id="mobile-music-panel">
+                    <h3 class="mobile-panel-title">主页音乐设置</h3>
+                    <div class="mobile-form-group">
+                        <label for="mobileMusicUrlInput">音乐URL</label>
+                        <input type="text" id="mobileMusicUrlInput" placeholder="例如：https://.../home.mp3">
+                    </div>
+                    <div class="mobile-form-group" style="display:flex; align-items:center; gap:8px;">
+                        <input type="checkbox" id="mobileMusicAutoplay" checked>
+                        <label for="mobileMusicAutoplay">自动播放</label>
+                    </div>
+                    <div style="display:flex; gap:10px; margin-top:8px;">
+                        <button class="mobile-card-button" id="mobileSaveMusicSettings">保存设置</button>
+                        <button class="mobile-card-button" id="mobileTestMusicBtn">试听/暂停</button>
+                    </div>
+                    <p style="margin-top:10px;color:#666;">提示：保存后主页将按设置自动播放。移动端仅保存设置，不在此页播放。</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 联系我们 -->
+        <div class="mobile-page" id="contact-page">
+            <div class="container">
+                <h2 class="mobile-section-title">联系我们</h2>
+                
+                <div class="mobile-card">
+                    <div class="mobile-card-body">
+                        <h3 class="mobile-card-title">联系方式</h3>
+                        <p><strong>邮箱：</strong>1772854040@qq.com</p>
+                        <p><strong>电话：</strong>13063939865</p>
+                        <p><strong>QQ：</strong>3316651632</p>
+                    </div>
+                </div>
+                
+                <div class="mobile-card">
+                    <div class="mobile-card-body">
+                        <h3 class="mobile-card-title">留言咨询</h3>
+                        <div class="mobile-form-group">
+                            <label for="message-name">姓名</label>
+                            <input type="text" id="message-name" placeholder="请输入您的姓名">
+                        </div>
+                        <div class="mobile-form-group">
+                            <label for="message-email">邮箱</label>
+                            <input type="email" id="message-email" placeholder="请输入您的邮箱">
+                        </div>
+                        <div class="mobile-form-group">
+                            <label for="message-content">留言内容</label>
+                            <textarea id="message-content" rows="4" placeholder="请输入您的留言内容" style="width: 100%; padding: 12px 15px; border: 1px solid #ddd; border-radius: 6px; font-family: inherit;"></textarea>
+                        </div>
+                        <button class="mobile-card-button" style="margin-top: 10px;">提交留言</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 底部导航栏 -->
+    <div class="mobile-bottom-nav">
+        <a href="#" class="mobile-nav-item active" data-page="home">
+            <div class="mobile-nav-icon">🏠</div>
+            <div>首页</div>
+        </a>
+        <a href="#" class="mobile-nav-item" data-page="courses">
+            <div class="mobile-nav-icon">📚</div>
+            <div>课程</div>
+        </a>
+        <a href="#" class="mobile-nav-item" data-page="sponsor">
+            <div class="mobile-nav-icon">⭐</div>
+            <div>会员</div>
+        </a>
+        <a href="#" class="mobile-nav-item" data-page="public-classes">
+            <div class="mobile-nav-icon">🎓</div>
+            <div>公开课</div>
+        </a>
+        <a href="#" class="mobile-nav-item" data-page="contact">
+            <div class="mobile-nav-icon">📞</div>
+            <div>联系</div>
+        </a>
+    </div>
+    
+    <!-- 登录弹窗 -->
+    <div class="mobile-modal" id="login-modal">
+        <div class="mobile-modal-content">
+            <div class="mobile-modal-header">
+                <h3 class="mobile-modal-title">会员登录</h3>
+                <button class="mobile-modal-close">✕</button>
+            </div>
+            <div class="mobile-modal-body">
+                <div class="mobile-login-tabs">
+                    <div class="mobile-login-tab active" data-tab="login">登录</div>
+                    <div class="mobile-login-tab" data-tab="register">注册</div>
+                </div>
+                
+                <form class="mobile-login-form active" id="mobile-login-form">
+                    <div class="mobile-form-group">
+                        <label for="mobile-login-username">用户名/邮箱</label>
+                        <input type="text" id="mobile-login-username" placeholder="请输入用户名或邮箱" required>
+                    </div>
+                    <div class="mobile-form-group">
+                        <label for="mobile-login-password">密码</label>
+                        <input type="password" id="mobile-login-password" placeholder="请输入密码" required>
+                    </div>
+                    <button type="submit" class="mobile-login-submit">登录</button>
+                </form>
+                
+                <form class="mobile-login-form" id="mobile-register-form">
+                    <div class="mobile-form-group">
+                        <label for="mobile-register-username">用户名</label>
+                        <input type="text" id="mobile-register-username" placeholder="请输入用户名" required>
+                    </div>
+                    <div class="mobile-form-group">
+                        <label for="mobile-register-email">邮箱</label>
+                        <input type="email" id="mobile-register-email" placeholder="请输入邮箱" required>
+                    </div>
+                    <div class="mobile-form-group">
+                        <label for="mobile-register-password">密码</label>
+                        <input type="password" id="mobile-register-password" placeholder="请输入密码" required>
+                    </div>
+                    <div class="mobile-form-group">
+                        <label for="mobile-register-confirm">确认密码</label>
+                        <input type="password" id="mobile-register-confirm" placeholder="请再次输入密码" required>
+                    </div>
+                    <button type="submit" class="mobile-login-submit">注册</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 联系导师弹窗 -->
+    <!-- VIP激活弹窗 -->
+     <div class="mobile-modal" id="vip-activate-modal">
+         <div class="mobile-modal-content">
+             <div class="mobile-modal-header">
+                 <h3 class="mobile-modal-title">激活VIP</h3>
+                 <button class="mobile-modal-close" id="vipActivateClose">✕</button>
+             </div>
+             <div class="mobile-modal-body">
+                 <div class="mobile-form-group">
+                     <label for="vipActivationInput">激活码</label>
+                     <input type="text" id="vipActivationInput" placeholder="请输入激活码">
+                 </div>
+                 <button class="mobile-add-new-btn" id="vipActivateBtn">激活VIP</button>
+             </div>
+         </div>
+     </div>
+ 
+     <!-- 联系导师弹窗 -->
+     <div class="mobile-modal" id="contact-modal">
+         <div class="mobile-modal-content">
+             <div class="mobile-modal-header">
+                 <h3 class="mobile-modal-title">联系导师</h3>
+                 <button class="mobile-modal-close">✕</button>
+             </div>
+             <div class="mobile-modal-body">
+                 <div class="mobile-contact-info">
+                     <p>请添加导师QQ进行课程咨询和购买：</p>
+                     <div class="mobile-qq-info">QQ: 3316651632</div>
+                     <div class="mobile-contact-instructions">
+                         <p>添加时请备注"课程咨询"，我们的导师荡气会尽快与您联系。</p>
+                         <p>工作时间：周一至周五 9:00-18:00</p>
+                     </div>
+                 </div>
+             </div>
+         </div>
+     </div>
+
+    <script>
+        // 数据存储
+        let students = JSON.parse(localStorage.getItem('taixuanStudents')) || [
+            {
+                id: 1,
+                name: "张三",
+                email: "zhangsan@example.com",
+                group: "初级班",
+                joinDate: "2023-09-15",
+                progress: 65,
+                studyTime: 42,
+                courses: ["易经入门", "八字命理精讲"]
+            },
+            {
+                id: 2,
+                name: "李四",
+                email: "lisi@example.com",
+                group: "进阶班",
+                joinDate: "2023-08-22",
+                progress: 82,
+                studyTime: 78,
+                courses: ["八字命理精讲", "风水实战应用"]
+            },
+            {
+                id: 3,
+                name: "王五",
+                email: "wangwu@example.com",
+                group: "VIP班",
+                joinDate: "2023-10-05",
+                progress: 45,
+                studyTime: 25,
+                courses: ["易经入门", "风水实战应用", "梅花易数精解"]
+            },
+            {
+                id: 4,
+                name: "赵六",
+                email: "zhaoliu@example.com",
+                group: "未分组",
+                joinDate: "2023-11-12",
+                progress: 30,
+                studyTime: 15,
+                courses: ["易经入门"]
+            },
+            {
+                id: 5,
+                name: "钱七",
+                email: "qianqi@example.com",
+                group: "高级班",
+                joinDate: "2023-07-30",
+                progress: 75,
+                studyTime: 95,
+                courses: ["八字命理精讲", "风水实战应用", "梅花易数精解"]
+            }
+        ];
+
+        let groups = JSON.parse(localStorage.getItem('taixuanGroups')) || [
+            {
+                id: 1,
+                name: "初级班",
+                studentCount: 45,
+                createDate: "2023-01-15",
+                manager: "荡气",
+                description: "适合初学者的入门课程"
+            },
+            {
+                id: 2,
+                name: "进阶班",
+                studentCount: 32,
+                createDate: "2023-03-20",
+                manager: "荡气",
+                description: "适合有一定基础的学员"
+            },
+            {
+                id: 3,
+                name: "高级班",
+                studentCount: 18,
+                createDate: "2023-05-10",
+                manager: "荡气",
+                description: "深入探讨易学高级主题"
+            },
+            {
+                id: 4,
+                name: "VIP班",
+                studentCount: 12,
+                createDate: "2023-07-05",
+                manager: "荡气",
+                description: "一对一指导，个性化学习方案"
+            }
+        ];
+
+        let courses = JSON.parse(localStorage.getItem('taixuanCourses')) || [
+            {
+                id: 1,
+                name: "易经入门",
+                category: "易经基础",
+                instructor: "荡气",
+                price: 299,
+                description: "从零开始学习易经基础知识，了解八卦、六十四卦的基本含义与应用，掌握易经核心思想。",
+                level: "bronze",
+                duration: 12,
+                students: 156,
+                avgProgress: 72
+            },
+            {
+                id: 2,
+                name: "八字命理精讲",
+                category: "命理预测",
+                instructor: "荡气",
+                price: 599,
+                description: "深入学习八字命理，掌握排盘、解读技巧，洞悉人生轨迹，预测运势走向。",
+                level: "silver",
+                duration: 20,
+                students: 89,
+                avgProgress: 65
+            },
+            {
+                id: 3,
+                name: "风水实战应用",
+                category: "风水实践",
+                instructor: "荡气",
+                price: 799,
+                description: "学习风水布局原理，掌握家居、办公环境优化方法，提升生活品质与事业运势。",
+                level: "gold",
+                duration: 15,
+                students: 67,
+                avgProgress: 58
+            }
+        ];
+
+        // 会员课程数据
+        const userCourses = [
+            {
+                id: 1,
+                title: "易经入门精讲",
+                progress: 85,
+                lastStudy: "2023-11-15",
+                totalLessons: 12,
+                completedLessons: 10,
+                studyTime: 15,
+                instructor: "荡气",
+                category: "易经基础"
+            },
+            {
+                id: 2,
+                title: "八字命理实战",
+                progress: 60,
+                lastStudy: "2023-11-10",
+                totalLessons: 20,
+                completedLessons: 12,
+                studyTime: 22,
+                instructor: "荡气",
+                category: "命理预测"
+            },
+            {
+                id: 3,
+                title: "风水布局应用",
+                progress: 45,
+                lastStudy: "2023-11-05",
+                totalLessons: 15,
+                completedLessons: 7,
+                studyTime: 12,
+                instructor: "荡气",
+                category: "风水实践"
+            },
+            {
+                id: 4,
+                title: "梅花易数精解",
+                progress: 30,
+                lastStudy: "2023-10-28",
+                totalLessons: 18,
+                completedLessons: 5,
+                studyTime: 8,
+                instructor: "荡气",
+                category: "占卜预测"
+            }
+        ];
+
+        // 管理员账户
+        const adminAccount = {
+            username: "admin",
+            password: "admin123",
+            role: "admin"
+        };
+
+        // 移动端导航功能
+        // 安全工具函数
+        function safeText(str) {
+            if (str === null || str === undefined) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/\"/g, '&quot;')
+                .replace(/'/g, '&#39;')
+                .replace(/`/g, '&#96;');
+        }
+        document.addEventListener('DOMContentLoaded', function() {
+            // 菜单按钮事件
+            const menuBtn = document.querySelector('.mobile-menu-btn');
+            const menuClose = document.querySelector('.mobile-menu-close');
+            const mobileMenu = document.querySelector('.mobile-menu');
+            const overlay = document.querySelector('.overlay');
+            
+            menuBtn.addEventListener('click', function() {
+                mobileMenu.classList.add('active');
+                overlay.classList.add('active');
+            });
+            
+            menuClose.addEventListener('click', function() {
+                mobileMenu.classList.remove('active');
+                overlay.classList.remove('active');
+            });
+            
+            overlay.addEventListener('click', function() {
+                mobileMenu.classList.remove('active');
+                overlay.classList.remove('active');
+            });
+            
+            // 页面切换功能
+            const navItems = document.querySelectorAll('.mobile-nav-item, .mobile-menu-item');
+            const pages = document.querySelectorAll('.mobile-page');
+            
+            navItems.forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const pageId = this.getAttribute('data-page') + '-page';
+                    
+                    // 更新导航状态
+                    navItems.forEach(nav => nav.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // 显示对应页面
+                    pages.forEach(page => page.classList.remove('active'));
+                    document.getElementById(pageId).classList.add('active');
+                    
+                    // 关闭菜单
+                    mobileMenu.classList.remove('active');
+                    overlay.classList.remove('active');
+                });
+            });
+            
+            // AI 聊天（移动端课程页）
+            const chatInput = document.getElementById('mobileChatInput');
+            const chatSend = document.getElementById('mobileChatSend');
+            const chatMessages = document.getElementById('mobileChatMessages');
+
+            function appendMessage(role, text) {
+                const bubble = document.createElement('div');
+                bubble.className = `mobile-chat-message ${role}`;
+                bubble.textContent = text;
+                chatMessages.appendChild(bubble);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+
+            async function callAIEndpoint(prompt) {
+                const endpoint = localStorage.getItem('aiChatEndpoint');
+                const key = localStorage.getItem('aiChatKey');
+                if (!endpoint) return null;
+                try {
+                    const res = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...(key ? { 'Authorization': `Bearer ${key}` } : {})
+                        },
+                        body: JSON.stringify({ prompt })
+                    });
+                    if (!res.ok) throw new Error('接口返回非200');
+                    const data = await res.json();
+                    // 兼容常见返回结构：{text} 或 {message} 或 {data.answer}
+                    return data.text || data.message || (data.data && data.data.answer) || JSON.stringify(data);
+                } catch (err) {
+                    console.error('AI接口错误:', err);
+                    return '抱歉，AI接口暂时不可用，请稍后重试。';
+                }
+            }
+
+            function localRules(prompt) {
+                const p = prompt.trim();
+                if (!p) return '请先输入你的问题，比如：推荐适合新手的课程。';
+                const lower = p.toLowerCase();
+                if (/(古风|古筝|古琴|国风)/.test(p)) {
+                    return '想要古风课程？推荐先从“国风音乐入门”、“古琴基础指法”、“古筝入门曲目”开始；若要练习计划，我可以为你制定每周练习清单。';
+                }
+                if (/(推荐|入门|新手)/.test(p)) {
+                    return `入门推荐：
+- 课程：零基础快速上手
+- 学习路径：基础→进阶→项目实战
+- 每周安排：2小时基础练习 + 1小时实战复盘`;
+                }
+                if (lower.includes('讲师') || /老师|讲师/.test(p)) {
+                    return '讲师建议：选择擅长你目标方向的讲师；查看其学员评价与作品集；若需，我可按你的目标给出更精确的讲师推荐。';
+                }
+                if (/(优惠|价格|活动)/.test(p)) {
+                    return '当前促销：新用户可享受首月折扣；若你绑定邮箱，我可为你推送最新活动。';
+                }
+                return '我已记录你的问题，会为你匹配相关课程与讲师；也可以告诉我你的目标时长与水平，我来给你做定制学习路径。';
+            }
+
+            async function handleSend() {
+                const prompt = chatInput.value.trim();
+                if (!prompt) return;
+                appendMessage('user', prompt);
+                chatInput.value = '';
+                appendMessage('assistant', '思考中……');
+                // 暂存“思考中”消息节点以便替换
+                const thinkingNode = chatMessages.lastChild;
+                const aiAnswer = await callAIEndpoint(prompt);
+                const reply = aiAnswer || localRules(prompt);
+                thinkingNode.textContent = reply;
+            }
+
+            if (chatSend && chatInput && chatMessages) {
+                chatSend.addEventListener('click', handleSend);
+                chatInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') handleSend();
+                });
+                // 支持点击标签快捷提问
+                document.querySelectorAll('.mobile-search-tag').forEach(tag => {
+                    tag.addEventListener('click', () => {
+                        const text = tag.textContent.trim();
+                        chatInput.value = text;
+                        handleSend();
+                    });
+                });
+                // 首次加载欢迎语
+                appendMessage('assistant', '你好，我是课程AI助理。可以问我课程推荐、学习路径或讲师选择。');
+            }
+
+            // 管理员标签切换
+            const adminTabs = document.querySelectorAll('.mobile-admin-tab');
+            const adminPanels = document.querySelectorAll('.mobile-admin-panel');
+            
+            adminTabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const tabName = this.getAttribute('data-tab');
+                    
+                    // 更新标签状态
+                    adminTabs.forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // 显示对应的面板
+                    adminPanels.forEach(panel => {
+                        panel.classList.remove('active');
+                        if (panel.id === 'mobile-' + tabName + '-panel') {
+                            panel.classList.add('active');
+                        }
+                    });
+                    
+                    // 音乐面板预填
+                    if (tabName === 'music') {
+                        let s = { url: '', autoplay: true };
+                        try { s = JSON.parse(localStorage.getItem('taixuanMusicSettings')) || s; } catch(e) {}
+                        const urlEl = document.getElementById('mobileMusicUrlInput');
+                        const autoEl = document.getElementById('mobileMusicAutoplay');
+                        if (urlEl) urlEl.value = s.url || '';
+                        if (autoEl) autoEl.checked = !!s.autoplay;
+                    }
+                    // 赞助激活码面板渲染
+                    if (tabName === 'vipcodes') {
+                        renderVipCodes();
+                    }
+                });
+            });
+            
+            // 音乐设置事件（管理员）
+            (function(){
+                function isAdminUser(){
+                    try { const u = JSON.parse(localStorage.getItem('taixuanUser')); return !!(u && u.role === 'admin'); } catch(e){ return false; }
+                }
+                const saveBtn = document.getElementById('mobileSaveMusicSettings');
+                const testBtn = document.getElementById('mobileTestMusicBtn');
+                const urlEl = document.getElementById('mobileMusicUrlInput');
+                const autoEl = document.getElementById('mobileMusicAutoplay');
+                if (saveBtn) {
+                    saveBtn.addEventListener('click', function(){
+                        if (!isAdminUser()) { alert('需要管理员权限'); return; }
+                        const url = (urlEl && urlEl.value) ? urlEl.value.trim() : '';
+                        const autoplay = !!(autoEl && autoEl.checked);
+                        if (!url) { alert('请填写音乐URL'); return; }
+                        if (!/^https?:\/\//i.test(url)) { alert('音乐URL格式不正确，应以http或https开头'); return; }
+                        // 支持网易云歌曲页面链接，自动转换为外链可播放地址
+                        let finalUrl = url;
+                        const nm = finalUrl.match(/music\.163\.com.*id=(\d+)/);
+                        if (nm && !/song\/media\/outer\/url/i.test(finalUrl)) {
+                            finalUrl = `https://music.163.com/song/media/outer/url?id=${nm[1]}.mp3`;
+                        }
+                        // 保存到localStorage，主页读取应用
+                        localStorage.setItem('taixuanMusicSettings', JSON.stringify({ url: finalUrl, autoplay }));
+                        alert('主页音乐设置已保存');
+                    });
+                }
+                if (testBtn) {
+                    let tempAudio = null;
+                    testBtn.addEventListener('click', function(){
+                        if (!isAdminUser()) { alert('需要管理员权限'); return; }
+                        const url = (urlEl && urlEl.value) ? urlEl.value.trim() : '';
+                        if (!url) { alert('请填写音乐URL'); return; }
+                        if (!tempAudio) tempAudio = new Audio(url);
+                        if (tempAudio.paused) { tempAudio.play().catch(()=>{}); } else { tempAudio.pause(); }
+                    });
+                }
+            })();
+            
+            // 登录功能
+            const loginBtn = document.getElementById('mobileLoginBtn');
+            const loginModal = document.getElementById('login-modal');
+            const loginClose = loginModal.querySelector('.mobile-modal-close');
+            const loginTabs = document.querySelectorAll('.mobile-login-tab');
+            const loginForms = document.querySelectorAll('.mobile-login-form');
+            
+            loginBtn.addEventListener('click', function() {
+                loginModal.classList.add('active');
+                overlay.classList.add('active');
+            });
+            
+            loginClose.addEventListener('click', function() {
+                loginModal.classList.remove('active');
+                overlay.classList.remove('active');
+            });
+            
+            // 登录标签切换
+            loginTabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const tabName = this.getAttribute('data-tab');
+                    
+                    loginTabs.forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    loginForms.forEach(form => {
+                        form.classList.remove('active');
+                        if (form.id === 'mobile-' + tabName + '-form') {
+                            form.classList.add('active');
+                        }
+                    });
+                });
+            });
+
+            // 激活VIP事件
+            const vipActivateBtn = document.getElementById('vipActivateBtn');
+            if (vipActivateBtn) {
+                vipActivateBtn.addEventListener('click', function(){
+                    const input = document.getElementById('vipActivationInput');
+                    const code = (input && input.value || '').trim();
+                    if (!code) { alert('请输入激活码'); return; }
+                    const userInfo = JSON.parse(localStorage.getItem('taixuanUser')) || {};
+                    if (!userInfo || !userInfo.isLoggedIn) { alert('请先登录再激活VIP'); return; }
+                    const list = getVipCodes();
+                    const item = list.find(x => x.code === code);
+                    if (!item) { alert('未找到该激活码，请确认后再试'); return; }
+                    if (item.status === 'used') { alert('该激活码已被使用'); return; }
+                    // 预判激活码类型
+                    const inferredPlan = item.plan || (typeof item.code === 'string' && item.code.startsWith('VIP-M-') ? 'monthly' : (typeof item.code === 'string' && item.code.startsWith('VIP-Y-') ? 'yearly' : ''));
+                    // 检查与所选赞助类型一致性
+                    const desiredPlan2 = localStorage.getItem('vipDesiredPlan') || '';
+                    if (desiredPlan2 && inferredPlan && inferredPlan !== desiredPlan2) {
+                        alert(`您选择的是${desiredPlan2==='yearly'?'年度':'月度'}赞助，请使用对应类型的激活码`);
+                        return;
+                    }
+                    // 检查当前会员类型与到期，禁止跨类型激活
+                    let currentPlan = userInfo.vipPlan || '';
+                    let currentExpire = Number(userInfo.vipExpireAt || 0);
+                    if (!currentExpire || Date.now() >= currentExpire) {
+                        // 尝试从激活码记录推断当前状态
+                        try {
+                            const usedByUser = list.filter(i => i.status === 'used' && i.usedBy === userInfo.username);
+                            if (usedByUser.length) {
+                                usedByUser.sort((a,b)=>Number(b.usedAt||0)-Number(a.usedAt||0));
+                                const latest = usedByUser[0];
+                                const latestPlan = latest.plan || (typeof latest.code === 'string' && latest.code.startsWith('VIP-M-') ? 'monthly' : (typeof latest.code === 'string' && latest.code.startsWith('VIP-Y-') ? 'yearly' : ''));
+                                if (latest.usedAt && latestPlan) {
+                                    currentPlan = latestPlan;
+                                    currentExpire = latestPlan === 'monthly' ? Number(latest.usedAt) + 30*24*60*60*1000 : Number(latest.usedAt) + 365*24*60*60*1000;
+                                }
+                            }
+                        } catch(e) {}
+                    }
+                    if (currentPlan && currentExpire && Date.now() < currentExpire && inferredPlan && inferredPlan !== currentPlan) {
+                        alert(`当前为${currentPlan==='yearly'?'年度':'月度'}VIP（未过期），不能使用${inferredPlan==='yearly'?'年度':'月度'}激活码`);
+                        return;
+                    }
+                    // 标记使用并写入到期
+                    item.status = 'used';
+                    item.usedBy = userInfo.username;
+                    item.usedAt = Date.now();
+                    if (!item.plan && inferredPlan) { item.plan = inferredPlan; }
+                    saveVipCodes(list);
+                    let expireTs = 0;
+                    if (item.usedAt) {
+                        if (inferredPlan === 'monthly') expireTs = Number(item.usedAt) + 30*24*60*60*1000;
+                        else if (inferredPlan === 'yearly') expireTs = Number(item.usedAt) + 365*24*60*60*1000;
+                    }
+                    userInfo.vipPlan = inferredPlan || '';
+                    userInfo.vipExpireAt = expireTs || 0;
+                    userInfo.isVIP = !expireTs || Date.now() < expireTs;
+                    localStorage.setItem('taixuanUser', JSON.stringify(userInfo));
+                    alert('VIP已激活，感谢赞助！');
+                    updateMobileAuthUI(userInfo.username, userInfo.role);
+                });
+            }
+            
+            // 联系导师弹窗
+            const contactModal = document.getElementById('contact-modal');
+            const contactClose = contactModal.querySelector('.mobile-modal-close');
+            const purchaseBtns = document.querySelectorAll('.purchase-btn');
+
+            // VIP激活码存储与工具函数（本地存储）
+            function getVipCodes(){
+                try { return JSON.parse(localStorage.getItem('taixuanVipCodes')) || []; } catch(e){ return []; }
+            }
+            function saveVipCodes(list){
+                localStorage.setItem('taixuanVipCodes', JSON.stringify(list));
+            }
+            function generateVipCode(plan){
+                const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+                let s = '';
+                for (let i=0;i<8;i++){ s += alphabet[Math.floor(Math.random()*alphabet.length)]; }
+                const prefix = plan === 'yearly' ? 'VIP-Y-' : plan === 'monthly' ? 'VIP-M-' : 'VIP-';
+                return prefix + s;
+            }
+            
+            // VIP激活码面板渲染与事件
+            function renderVipCodes(){
+                const panel = document.getElementById('mobile-vipcodes-panel');
+                if (!panel) return;
+                const tbody = panel.querySelector('#vipCodesTableBody');
+                const empty = panel.querySelector('#vipCodesEmpty');
+                const list = getVipCodes();
+                if (!tbody) return;
+                if (!list.length) {
+                    if (empty) empty.style.display = 'table-row';
+                    tbody.innerHTML = '';
+                    return;
+                }
+                if (empty) empty.style.display = 'none';
+                tbody.innerHTML = list.map(item => {
+                    const issued = item.issuedTo || '-';
+                    const user = item.usedBy || '-';
+                    const statusText = item.status === 'used' ? '已使用' : '未使用';
+                    const planLabel = item.plan === 'yearly' ? '年度' : (item.plan === 'monthly' ? '月度' : '-');
+                    return `<tr data-code="${safeText(item.code)}">
+            <td>${safeText(item.code)}</td>
+            <td>${planLabel}</td>
+            <td>${statusText}</td>
+            <td>${safeText(issued)}</td>
+            <td>${safeText(user)}</td>
+            <td>
+                <button class="mobile-small-btn copy-code-btn">复制</button>
+                <button class="mobile-small-btn delete-code-btn">删除</button>
+            </td>
+        </tr>`;
+                }).join('');
+            }
+
+            document.addEventListener('click', function(e){
+                const panel = document.getElementById('mobile-vipcodes-panel');
+                if (!panel || panel.style.display === 'none') return;
+                const target = e.target;
+                if (target.id === 'vipNewMonthlyBtn' || target.id === 'vipNewYearlyBtn') {
+                    function isAdminUser(){
+                        try { const u = JSON.parse(localStorage.getItem('taixuanUser')); return !!(u && u.role === 'admin'); } catch(e){ return false; }
+                    }
+                    const userInfo = JSON.parse(localStorage.getItem('taixuanUser')) || {};
+                    if (!userInfo || !userInfo.isLoggedIn) {
+                        alert('请先登录后再生成激活码');
+                        return;
+                    }
+                    if (!isAdminUser()) { alert('需要管理员权限'); return; }
+                    const plan = target.id === 'vipNewYearlyBtn' ? 'yearly' : 'monthly';
+                    const code = generateVipCode(plan);
+                    const list = getVipCodes();
+                    list.push({ code, plan, status: 'unused', createdAt: Date.now(), issuedTo: userInfo.username });
+                    saveVipCodes(list);
+                    renderVipCodes();
+                    alert(`已生成${plan==='yearly'?'年度':'月度'}VIP激活码：` + code);
+                    return;
+                }
+                if (target.classList && target.classList.contains('copy-code-btn')) {
+                    const tr = target.closest('tr');
+                    const code = tr && tr.dataset.code;
+                    if (!code) return;
+                    try { navigator.clipboard.writeText(code); alert('已复制：' + code); }
+                    catch { alert('请手动复制：' + code); }
+                    return;
+                }
+                if (target.classList && target.classList.contains('delete-code-btn')) {
+                    const tr = target.closest('tr');
+                    const code = tr && tr.dataset.code;
+                    if (!code) return;
+                    const list = getVipCodes().filter(i => i.code !== code);
+                    saveVipCodes(list);
+                    renderVipCodes();
+                    return;
+                }
+            });
+            
+            // 赞助按钮：打开VIP激活弹窗
+            purchaseBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const product = this.getAttribute('data-product') || '';
+                    // 设置目标赞助类型（用于限制激活码类型）
+                    const desiredPlan = (/月度/.test(product) ? 'monthly' : (/年度/.test(product) ? 'yearly' : ''));
+                    if (desiredPlan) { localStorage.setItem('vipDesiredPlan', desiredPlan); } else { localStorage.removeItem('vipDesiredPlan'); }
+                    if (/赞助|会员/.test(product)) {
+                        const userInfo = JSON.parse(localStorage.getItem('taixuanUser')) || {};
+                        if (!userInfo || !userInfo.isLoggedIn) {
+                            alert('请先登录后再激活VIP');
+                            loginModal.classList.add('active');
+                            overlay.classList.add('active');
+                            return;
+                        }
+                        const vipModal = document.getElementById('vip-activate-modal');
+                        if (vipModal) {
+                            vipModal.classList.add('active');
+                            overlay.classList.add('active');
+                        }
+                        return;
+                    }
+                    // 非赞助产品，打开联系导师弹窗
+                    contactModal.classList.add('active');
+                    overlay.classList.add('active');
+                });
+            });
+            
+            contactClose.addEventListener('click', function() {
+                contactModal.classList.remove('active');
+                overlay.classList.remove('active');
+            });
+            const vipActivateClose = document.getElementById('vipActivateClose');
+            if (vipActivateClose) {
+                vipActivateClose.addEventListener('click', function(){
+                    const vipModal = document.getElementById('vip-activate-modal');
+                    if (vipModal) vipModal.classList.remove('active');
+                    overlay.classList.remove('active');
+                    // 清除已选择的赞助类型
+                    localStorage.removeItem('vipDesiredPlan');
+                });
+            }
+            
+            // 模拟登录状态
+            const mobileAuthSection = document.getElementById('mobileAuthSection');
+            const mobileMyCoursesLink = document.getElementById('mobileMyCoursesLink');
+            const mobileAdminPanelLink = document.getElementById('mobileAdminPanelLink');
+            
+            // 检查是否有登录状态
+            const userInfo = JSON.parse(localStorage.getItem('taixuanUser'));
+            if (userInfo && userInfo.isLoggedIn) {
+                updateMobileAuthUI(userInfo.username, userInfo.role);
+            }
+            
+            // 登录表单提交
+            document.getElementById('mobile-login-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const usernameInput = document.getElementById('mobile-login-username').value;
+                const password = document.getElementById('mobile-login-password').value;
+                const username = usernameInput;
+                
+                // 检查是否是管理员登录
+                if (username === adminAccount.username && password === adminAccount.password) {
+                    const userInfo = {
+                        username: username,
+                        role: adminAccount.role,
+                        isLoggedIn: true
+                    };
+                    localStorage.setItem('taixuanUser', JSON.stringify(userInfo));
+                    updateMobileAuthUI(username, adminAccount.role);
+                    loginModal.classList.remove('active');
+                    overlay.classList.remove('active');
+                    alert('管理员登录成功！');
+                    return;
+                }
+                
+                // 普通用户登录（净化显示）
+                const safeUsername = safeText(username);
+                const userInfo = {
+                    username: safeUsername,
+                    role: 'user',
+                    isLoggedIn: true
+                };
+                localStorage.setItem('taixuanUser', JSON.stringify(userInfo));
+                updateMobileAuthUI(safeUsername, 'user');
+                loginModal.classList.remove('active');
+                overlay.classList.remove('active');
+                alert('登录成功！');
+            });
+            
+            // 注册表单提交
+            document.getElementById('mobile-register-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const usernameInput = document.getElementById('mobile-register-username').value;
+                const emailInput = document.getElementById('mobile-register-email').value;
+                const password = document.getElementById('mobile-register-password').value;
+                const confirmPassword = document.getElementById('mobile-register-confirm').value;
+                
+                if (password !== confirmPassword) {
+                    alert('两次输入的密码不一致，请重新输入！');
+                    return;
+                }
+                
+                const username = safeText(usernameInput);
+                const email = safeText(emailInput);
+                const userInfo = {
+                    username: username,
+                    email: email,
+                    role: 'user',
+                    isLoggedIn: true
+                };
+                
+                localStorage.setItem('taixuanUser', JSON.stringify(userInfo));
+                updateMobileAuthUI(username, 'user');
+                loginModal.classList.remove('active');
+                overlay.classList.remove('active');
+                alert('注册成功！已自动登录。');
+            });
+            
+            // 更新移动端登录状态UI
+            function updateMobileAuthUI(username, role) {
+                const sUsername = safeText(username || '');
+                const firstChar = sUsername.charAt(0);
+                const current = JSON.parse(localStorage.getItem('taixuanUser')) || {};
+                let isVIP = !!current.isVIP;
+                const expireAt = Number(current.vipExpireAt || 0);
+                if (expireAt) { isVIP = Date.now() < expireAt; }
+                if (role === 'admin') {
+                    mobileAuthSection.innerHTML = `
+                        <div class="mobile-user-info">
+                            <div class="mobile-user-avatar mobile-admin-avatar">管</div>
+                            <span>${sUsername}</span>
+                        </div>
+                        <button class="mobile-logout-btn" id="mobileLogoutBtn">退出登录</button>
+                    `;
+                    mobileMyCoursesLink.style.display = 'none';
+                    mobileAdminPanelLink.style.display = 'block';
+                } else {
+                    mobileAuthSection.innerHTML = `
+                        <div class="mobile-user-info">
+                            <div class="mobile-user-avatar ${isVIP ? 'vip' : ''}">${firstChar}</div>
+                            <span>${sUsername}${isVIP ? '（VIP）' : ''}</span>
+                        </div>
+                        <button class="mobile-logout-btn" id="mobileLogoutBtn">退出登录</button>
+                    `;
+                    mobileMyCoursesLink.style.display = 'block';
+                    mobileAdminPanelLink.style.display = 'none';
+                }
+                document.getElementById('mobileLogoutBtn').addEventListener('click', function() {
+                    localStorage.removeItem('taixuanUser');
+                    location.reload();
+                });
+            }
+        });
+    </script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('/sw.js').catch(function(e){ console.warn('SW registration failed:', e); });
+        });
+      }
+    </script>
+</body>
+</html>

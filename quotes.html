@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>道德经语录与粒子效果</title>
+  <!-- Tailwind CSS -->
+  <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome -->
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet" />
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="manifest" href="manifest.json" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'tao-gold': '#e6af2e',
+          },
+          fontFamily: {
+            'tao': ['"Ma Shan Zheng"', '"Noto Serif SC"', 'serif'],
+          },
+        }
+      }
+    }
+  </script>
+
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .text-shadow { text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5); }
+      .text-glow { text-shadow: 0 0 10px rgba(230, 175, 46, 0.7); }
+    }
+  </style>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      font-family: 'Noto Serif SC', serif;
+      background-color: #0a192f;
+      background-image: radial-gradient(1200px 600px at 20% 20%, rgba(230,175,46,0.08), transparent 50%),
+                        radial-gradient(800px 400px at 80% 70%, rgba(77,153,224,0.06), transparent 50%);
+    }
+
+    #particles-container {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 1;
+      pointer-events: none; /* 让页面交互不受影响 */
+    }
+
+    .quote-container {
+      position: relative;
+      z-index: 2;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .quote {
+      font-family: 'Ma Shan Zheng', cursive;
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      color: #e6af2e;
+      margin-bottom: 1rem;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+      transition: opacity 1s ease-in-out, transform 1s ease-in-out;
+      max-width: 80%;
+    }
+
+    .quote-author {
+      font-size: clamp(1rem, 2vw, 1.5rem);
+      color: rgba(255, 255, 255, 0.85);
+      margin-top: 0.5rem;
+      text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+      transition: opacity 1s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .quote, .quote-author { animation: fadeIn 1.5s ease-out forwards; }
+  </style>
+</head>
+<body>
+  <!-- 粒子容器 -->
+  <div id="particles-container"><canvas id="particles-canvas"></canvas></div>
+
+  <!-- 语录容器 -->
+  <div class="quote-container">
+    <div class="quote text-glow" id="quote">上善若水，水善利万物而不争</div>
+    <div class="quote-author" id="quote-author">——《道德经》第八章</div>
+  </div>
+
+  <script>
+    // 道德经经典语句集合
+    const taoistQuotes = [
+      { text: "上善若水，水善利万物而不争", author: "——《道德经》第八章" },
+      { text: "人法地，地法天，天法道，道法自然", author: "——《道德经》第二十五章" },
+      { text: "道生一，一生二，二生三，三生万物", author: "——《道德经》第四十二章" },
+      { text: "天地不仁，以万物为刍狗", author: "——《道德经》第五章" },
+      { text: "祸兮福之所倚，福兮祸之所伏", author: "——《道德经》第五十八章" },
+      { text: "千里之行，始于足下", author: "——《道德经》第六十四章" },
+      { text: "知足者富，强行者有志", author: "——《道德经》第三十三章" },
+      { text: "大直若屈，大巧若拙，大辩若讷", author: "——《道德经》第四十五章" },
+      { text: "反者道之动，弱者道之用", author: "——《道德经》第四十章" },
+      { text: "治大国，若烹小鲜", author: "——《道德经》第六十章" },
+      { text: "知者不言，言者不知", author: "——《道德经》第五十六章" },
+      { text: "为学日益，为道日损", author: "——《道德经》第四十八章" }
+    ];
+
+    // DOM 元素
+    const quoteElement = document.getElementById('quote');
+    const quoteAuthorElement = document.getElementById('quote-author');
+
+    // 语录淡入淡出切换效果
+    function fadeQuote() {
+      quoteElement.style.opacity = '0';
+      quoteElement.style.transform = 'translateY(20px) scale(0.98)';
+      quoteAuthorElement.style.opacity = '0';
+
+      setTimeout(() => {
+        const randomIndex = Math.floor(Math.random() * taoistQuotes.length);
+        const randomQuote = taoistQuotes[randomIndex];
+        quoteElement.textContent = randomQuote.text;
+        quoteAuthorElement.textContent = randomQuote.author;
+        quoteElement.style.opacity = '1';
+        quoteElement.style.transform = 'translateY(0) scale(1)';
+        quoteAuthorElement.style.opacity = '1';
+      }, 1000);
+    }
+    setInterval(fadeQuote, 8000);
+
+    // 粒子系统实现（Canvas）
+    class ParticleSystem {
+      constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.particles = [];
+        this.mouse = { x: null, y: null, radius: 140 };
+        this.maxConnections = 120; // 连线最大距离
+        this.color = 'rgba(230, 175, 46, 0.85)'; // 金色调
+        this.glowColor = 'rgba(230, 175, 46, 0.6)';
+        this.resizeObserver = null;
+        this.init();
+        this.addEventListeners();
+        this.animate = this.animate.bind(this);
+        requestAnimationFrame(this.animate);
+      }
+
+      calculateParticleCount() {
+        const area = window.innerWidth * window.innerHeight;
+        const base = Math.floor(area / 12000);
+        return Math.max(60, Math.min(base, 220));
+      }
+
+      setCanvasSize() {
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+      }
+
+      init() {
+        this.setCanvasSize();
+        this.populateParticles(this.calculateParticleCount());
+      }
+
+      populateParticles(count) {
+        this.particles.length = 0;
+        for (let i = 0; i < count; i++) {
+          const size = Math.random() * 1.6 + 0.6; // 0.6 - 2.2
+          const speed = Math.random() * 0.6 + 0.2; // 0.2 - 0.8
+          const angle = Math.random() * Math.PI * 2;
+          this.particles.push({
+            x: Math.random() * this.canvas.width,
+            y: Math.random() * this.canvas.height,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            size,
+            alpha: Math.random() * 0.6 + 0.25
+          });
+        }
+      }
+
+      addEventListeners() {
+        window.addEventListener('mousemove', (e) => {
+          this.mouse.x = e.clientX;
+          this.mouse.y = e.clientY;
+        });
+        window.addEventListener('mouseleave', () => {
+          this.mouse.x = null;
+          this.mouse.y = null;
+        });
+        window.addEventListener('click', (e) => {
+          // 点击产生一圈爆裂粒子
+          for (let i = 0; i < 10; i++) {
+            const angle = (Math.PI * 2) * (i / 10) + Math.random() * 0.3;
+            const speed = 2.6 + Math.random() * 1.4;
+            this.particles.push({
+              x: e.clientX,
+              y: e.clientY,
+              vx: Math.cos(angle) * speed,
+              vy: Math.sin(angle) * speed,
+              size: Math.random() * 2 + 1.2,
+              alpha: 0.9
+            });
+          }
+        });
+        // 触摸交互（移动端）：与鼠标一致
+        window.addEventListener('touchstart', (e) => {
+          if (e.touches && e.touches[0]) {
+            this.mouse.x = e.touches[0].clientX;
+            this.mouse.y = e.touches[0].clientY;
+          }
+        }, { passive: true });
+        window.addEventListener('touchmove', (e) => {
+          if (e.touches && e.touches[0]) {
+            this.mouse.x = e.touches[0].clientX;
+            this.mouse.y = e.touches[0].clientY;
+          }
+        }, { passive: true });
+        window.addEventListener('touchend', () => {
+          this.mouse.x = null;
+          this.mouse.y = null;
+        }, { passive: true });
+        window.addEventListener('resize', () => {
+          this.setCanvasSize();
+          this.populateParticles(this.calculateParticleCount());
+        });
+      }
+
+      drawParticle(p) {
+        const { ctx } = this;
+        ctx.save();
+        ctx.globalAlpha = p.alpha;
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = this.glowColor;
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+
+      connectParticles() {
+        const { ctx, particles } = this;
+        for (let i = 0; i < particles.length; i++) {
+          for (let j = i + 1; j < particles.length; j++) {
+            const dx = particles[i].x - particles[j].x;
+            const dy = particles[i].y - particles[j].y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < this.maxConnections) {
+              const alpha = (1 - dist / this.maxConnections) * 0.35;
+              ctx.strokeStyle = `rgba(230,175,46,${alpha})`;
+              ctx.lineWidth = 0.8;
+              ctx.beginPath();
+              ctx.moveTo(particles[i].x, particles[i].y);
+              ctx.lineTo(particles[j].x, particles[j].y);
+              ctx.stroke();
+            }
+          }
+        }
+      }
+
+      updateParticle(p) {
+        p.x += p.vx;
+        p.y += p.vy;
+        // 边界反弹
+        if (p.x < 0 || p.x > this.canvas.width) p.vx *= -1;
+        if (p.y < 0 || p.y > this.canvas.height) p.vy *= -1;
+        // 鼠标交互：轻微排斥
+        if (this.mouse.x !== null && this.mouse.y !== null) {
+          const dx = p.x - this.mouse.x;
+          const dy = p.y - this.mouse.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < this.mouse.radius) {
+            const force = (this.mouse.radius - dist) / this.mouse.radius;
+            p.vx += (dx / dist) * force * 0.6;
+            p.vy += (dy / dist) * force * 0.6;
+          }
+        }
+        // 轻微速度衰减，避免无限加速
+        p.vx *= 0.995;
+        p.vy *= 0.995;
+      }
+
+      animate() {
+        const { ctx, canvas, particles } = this;
+        if (document.hidden) { requestAnimationFrame(this.animate); return; }
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // 背景淡光
+        ctx.save();
+        const grad = ctx.createRadialGradient(canvas.width * 0.2, canvas.height * 0.2, 0, canvas.width * 0.2, canvas.height * 0.2, 600);
+        grad.addColorStop(0, 'rgba(230,175,46,0.06)');
+        grad.addColorStop(1, 'rgba(230,175,46,0.0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.restore();
+
+        // 更新 & 绘制粒子
+        for (let i = 0; i < particles.length; i++) {
+          this.updateParticle(particles[i]);
+          this.drawParticle(particles[i]);
+        }
+        // 连线
+        this.connectParticles();
+
+        requestAnimationFrame(this.animate);
+      }
+    }
+
+    // 启动系统
+    const canvas = document.getElementById('particles-canvas');
+    new ParticleSystem(canvas);
+  </script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('/sw.js').catch(function(e){ console.warn('SW registration failed:', e); });
+      });
+    }
+  </script>
+</body>
+</html>
