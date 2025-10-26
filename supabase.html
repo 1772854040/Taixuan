@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>太玄 · 账号与联系</title>
+  <!-- 该页面专用 CSP：允许加载 Supabase SDK 与连接到 Supabase 域名 -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' data:; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; connect-src 'self' https://*.supabase.co https://*.supabase.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #8C6E54;
+      --accent: #D9B382;
+      --ink: #1A1A1A;
+      --paper: #F6F4EE;
+      --line: rgba(0,0,0,0.12);
+      --danger: #B23A2B;
+      --success: #2E7D32;
+    }
+    * { box-sizing: border-box; }
+    body { font-family: "Noto Serif SC", serif; background: var(--paper); color: var(--ink); margin: 0; }
+    header { background: #2a1e16; color: #F5F1E8; padding: 16px; }
+    header .container { max-width: 960px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+    header a { color: var(--accent); text-decoration: none; }
+    main { max-width: 960px; margin: 24px auto; padding: 0 16px 40px; }
+    h1 { font-size: 1.6rem; margin: 0 0 8px; }
+    .desc { color: #555; margin-bottom: 16px; }
+    .card { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-bottom: 16px; box-shadow: 0 6px 16px rgba(0,0,0,0.06); }
+    label { display: block; font-size: 0.95rem; margin: 10px 0 6px; }
+    input, textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-family: inherit; }
+    textarea { min-height: 100px; resize: vertical; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .row > div { display: flex; flex-direction: column; }
+    .actions { display: flex; gap: 8px; margin-top: 12px; }
+    button { padding: 10px 16px; border-radius: 24px; border: 1px solid #ddd; background: linear-gradient(to right, var(--accent), var(--primary)); color: #2a1e16; cursor: pointer; }
+    button.secondary { background: #fafafa; }
+    .status { margin-top: 10px; font-size: 0.95rem; }
+    .status.error { color: var(--danger); }
+    .status.success { color: var(--success); }
+    .muted { color: #666; font-size: 0.9rem; }
+    .hidden { display: none; }
+    footer { text-align: center; color: #555; padding: 16px; }
+    .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: #f3f3f3; border: 1px solid #e6e6e6; border-radius: 6px; padding: 2px 6px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <div>
+        <strong>太玄 · 账号与联系</strong>
+        <div class="muted">此页用于登录/注册与提交联系信息</div>
+      </div>
+      <a href="./1.html">返回主页</a>
+    </div>
+  </header>
+  <main>
+    <section class="card">
+      <h1>登录 / 注册</h1>
+      <div class="desc">使用邮箱与密码登录；首次使用可注册账号。</div>
+      <div id="user-info" class="muted">未登录</div>
+      <div id="auth">
+        <label for="email">邮箱</label>
+        <input id="email" type="email" placeholder="you@example.com" autocomplete="email" />
+        <label for="password">密码</label>
+        <input id="password" type="password" placeholder="至少 8 位" autocomplete="current-password" />
+        <div class="actions">
+          <button id="sign-in">登录</button>
+          <button id="sign-up" class="secondary">注册</button>
+        </div>
+        <div id="auth-status" class="status"></div>
+      </div>
+      <div id="authed" class="hidden">
+        <div class="actions">
+          <button id="sign-out" class="secondary">退出登录</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h1>联系信息提交</h1>
+      <div class="desc">登录后填写姓名、电话与留言，保存到数据库。</div>
+      <form id="contact-form">
+        <div class="row">
+          <div>
+            <label for="name">姓名</label>
+            <input id="name" type="text" placeholder="张三" />
+          </div>
+          <div>
+            <label for="phone">电话</label>
+            <input id="phone" type="tel" placeholder="13800000000" />
+          </div>
+        </div>
+        <label for="message">留言</label>
+        <textarea id="message" placeholder="请填写您的需求或问题"></textarea>
+        <div class="actions">
+          <button type="submit">提交</button>
+          <button type="reset" class="secondary">重置</button>
+        </div>
+        <div id="contact-status" class="status"></div>
+      </form>
+      <div class="muted" style="margin-top:8px;">
+        使用前请在本页脚的说明中替换 <span class="kbd">SUPABASE_URL</span> 与 <span class="kbd">SUPABASE_ANON_KEY</span>。
+      </div>
+    </section>
+
+    <section class="card">
+      <h1>使用说明</h1>
+      <ul class="muted" style="padding-left: 18px; line-height: 1.7;">
+        <li>在 Supabase 控制台创建项目，记录 <span class="kbd">Project URL</span> 与 <span class="kbd">anon key</span>。</li>
+        <li>在数据库 SQL 运行以下（需已创建 <span class="kbd">profiles</span> 与 <span class="kbd">contacts</span> 表并启用 RLS）：
+          <div class="kbd" style="display:block; white-space: pre-wrap; margin-top:6px;">-- 示例（如已创建，可略）
+-- profiles(user_id uuid primary key, full_name text)
+-- contacts(id bigint generated always as identity primary key, user_id uuid references auth.users(id), name text, phone text, message text, created_at timestamptz default now())
+-- enable RLS policies: only owner can read/write their rows
+          </div></li>
+        <li>将本页中的常量替换为你项目的值后，提交到仓库并访问：/Taixuan/supabase.html。</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer>
+    <div class="muted">© 太玄 · 使用 GitHub Pages 托管 · Supabase 提供认证与存储</div>
+  </footer>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+    // TODO: 将下方常量替换为你的 Supabase 项目配置
+    const SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co';
+    const SUPABASE_ANON_KEY = 'YOUR-ANON-KEY';
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const $ = (sel) => document.querySelector(sel);
+    const status = {
+      auth: $('#auth-status'),
+      contact: $('#contact-status'),
+    };
+
+    function setStatus(el, msg, kind = 'info') {
+      el.textContent = msg;
+      el.className = `status ${kind === 'error' ? 'error' : kind === 'success' ? 'success' : ''}`;
+    }
+
+    async function refreshUser() {
+      const { data } = await supabase.auth.getSession();
+      const session = data.session;
+      if (session?.user) {
+        $('#user-info').textContent = `已登录：${session.user.email}`;
+        $('#auth').classList.add('hidden');
+        $('#authed').classList.remove('hidden');
+      } else {
+        $('#user-info').textContent = '未登录';
+        $('#auth').classList.remove('hidden');
+        $('#authed').classList.add('hidden');
+      }
+    }
+
+    // 监听认证状态变化
+    supabase.auth.onAuthStateChange((_event, _session) => {
+      refreshUser();
+    });
+    refreshUser();
+
+    // 登录
+    $('#sign-in').addEventListener('click', async () => {
+      const email = $('#email').value.trim();
+      const password = $('#password').value;
+      if (!email || !password) {
+        setStatus(status.auth, '请填写邮箱与密码');
+        return;
+      }
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) setStatus(status.auth, `登录失败：${error.message}`, 'error');
+      else setStatus(status.auth, '登录成功', 'success');
+    });
+
+    // 注册
+    $('#sign-up').addEventListener('click', async () => {
+      const email = $('#email').value.trim();
+      const password = $('#password').value;
+      if (!email || !password) {
+        setStatus(status.auth, '请填写邮箱与密码');
+        return;
+      }
+      const { error } = await supabase.auth.signUp({ email, password });
+      if (error) setStatus(status.auth, `注册失败：${error.message}`, 'error');
+      else setStatus(status.auth, '注册成功，请查收验证邮件后登录', 'success');
+    });
+
+    // 退出
+    $('#sign-out').addEventListener('click', async () => {
+      await supabase.auth.signOut();
+      setStatus(status.auth, '已退出');
+    });
+
+    // 联系表单提交
+    $('#contact-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const { data } = await supabase.auth.getSession();
+      const user = data.session?.user;
+      if (!user) {
+        setStatus(status.contact, '请先登录后再提交', 'error');
+        return;
+      }
+      const name = $('#name').value.trim();
+      const phone = $('#phone').value.trim();
+      const message = $('#message').value.trim();
+      if (!name || !message) {
+        setStatus(status.contact, '请填写姓名与留言', 'error');
+        return;
+      }
+      const { error } = await supabase.from('contacts').insert({ user_id: user.id, name, phone, message });
+      if (error) setStatus(status.contact, `提交失败：${error.message}`, 'error');
+      else {
+        setStatus(status.contact, '提交成功！', 'success');
+        $('#contact-form').reset();
+      }
+    });
+  </script>
+</body>
+</html>

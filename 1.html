@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' data:; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' data:; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; connect-src 'self' https://*.supabase.co https://*.supabase.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'">
     <title>太玄文化 - 易学大师个人品牌</title>
     <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
     <link rel="preload" as="image" href="taixuan-bg.jpg">
@@ -7102,21 +7102,20 @@
             });
         });
 
-        // 登录表单提交
-        loginForm.addEventListener('submit', function(e) {
+        // 登录表单提交（接入 Supabase 邮箱+密码认证）
+        loginForm.addEventListener('submit', async function(e) {
             e.preventDefault();
 
             const usernameOrEmail = document.getElementById('loginUsername').value;
             const password = document.getElementById('loginPassword').value;
 
-            // 管理员登录
+            // 管理员登录（保留原逻辑）
             if (usernameOrEmail === adminAccount.username && password === adminAccount.password) {
                 const userInfo = {
                     username: adminAccount.username,
                     role: adminAccount.role,
                     isLoggedIn: true
                 };
-                // 管理员不使用等级/经验/铜币属性
                 localStorage.setItem('taixuanUser', JSON.stringify(userInfo));
                 updateAuthUI(userInfo.username, userInfo.role);
                 loginModal.style.display = 'none';
@@ -7124,64 +7123,72 @@
                 return;
             }
 
-            // 会员登录（需激活）
-            const members = getMembers();
-            const m = members.find(x => x.email === usernameOrEmail || x.username === usernameOrEmail);
-            if (!m) {
-                alert('未找到该会员，请检查用户名/邮箱或先注册。');
-                return;
-            }
-            if (m.status !== MEMBER_STATUS.active) {
-                alert('该会员尚未激活或已被注销，无法登录。');
+            // 普通用户使用邮箱+密码登录到 Supabase
+            if (!usernameOrEmail || !usernameOrEmail.includes('@')) {
+                alert('请使用邮箱登录（格式：name@example.com）。');
                 return;
             }
 
-            const sUsername = safeText(m.username);
-            const sEmail = safeText(m.email);
-            let userInfo = {
-                username: sUsername,
-                email: sEmail,
-                role: 'user',
-                isLoggedIn: true,
-                level: Number(m.level || 1),
-                xp: Number(m.xp || 0),
-                coins: Math.min(999, Number(m.coins || 0)),
-                lastRewardDate: m.lastRewardDate || ''
-            };
-            // 登录时根据激活码记录同步VIP状态与到期时间
             try {
-                const vipList = JSON.parse(localStorage.getItem('taixuanVipCodes')) || [];
-                const usedByUser = vipList.filter(i => i.status === 'used' && i.usedBy === sUsername);
-                if (usedByUser.length) {
-                    usedByUser.sort((a,b)=>Number(b.usedAt||0)-Number(a.usedAt||0));
-                    const latest = usedByUser[0];
-                    const inferredPlan = latest.plan || (typeof latest.code === 'string' && latest.code.startsWith('VIP-M-') ? 'monthly' : (typeof latest.code === 'string' && latest.code.startsWith('VIP-Y-') ? 'yearly' : ''));
-                    let expireTs = 0;
-                    if (latest.usedAt) {
-                        if (inferredPlan === 'monthly') expireTs = Number(latest.usedAt) + 30*24*60*60*1000;
-                        else if (inferredPlan === 'yearly') expireTs = Number(latest.usedAt) + 365*24*60*60*1000;
-                    }
-                    userInfo.vipPlan = inferredPlan || '';
-                    userInfo.vipExpireAt = expireTs || 0;
-                    userInfo.isVIP = !expireTs || Date.now() < expireTs;
+                if (!window.supabaseClient) {
+                    alert('认证服务未初始化，请稍后重试或联系管理员。');
+                    return;
                 }
-            } catch(e) {}
-            userInfo = applyDailyLoginReward(ensureUserStats(userInfo));
-            if (userInfo.coins > 999) userInfo.coins = 999;
-            localStorage.setItem('taixuanUser', JSON.stringify(userInfo));
-            // 同步每日奖励到会员存储
-            m.level = userInfo.level;
-            m.xp = userInfo.xp;
-            m.coins = userInfo.coins;
-            m.lastRewardDate = userInfo.lastRewardDate;
-            saveMembers(members);
-            updateAuthUI(userInfo.username, userInfo.role);
-            loginModal.style.display = 'none';
-            alert('登录成功！');
+                const { data, error } = await supabaseClient.auth.signInWithPassword({
+                    email: usernameOrEmail,
+                    password
+                });
+                if (error) {
+                    alert('登录失败：' + (error.message || '请检查邮箱或密码'));
+                    return;
+                }
+
+                // 成功：建立本地用户信息，沿用既有等级/经验/铜币与 VIP 逻辑
+                const meta = (data && data.user && data.user.user_metadata) || {};
+                const sEmail = safeText(usernameOrEmail);
+                const sUsername = safeText(meta.username || sEmail.split('@')[0]);
+                let userInfo = {
+                    username: sUsername,
+                    email: sEmail,
+                    role: 'user',
+                    isLoggedIn: true,
+                    level: 1,
+                    xp: 0,
+                    coins: 0,
+                    lastRewardDate: ''
+                };
+                // 根据激活码记录同步 VIP 状态
+                try {
+                    const vipList = JSON.parse(localStorage.getItem('taixuanVipCodes')) || [];
+                    const usedByUser = vipList.filter(i => i.status === 'used' && i.usedBy === sUsername);
+                    if (usedByUser.length) {
+                        usedByUser.sort((a,b)=>Number(b.usedAt||0)-Number(a.usedAt||0));
+                        const latest = usedByUser[0];
+                        const inferredPlan = latest.plan || (typeof latest.code === 'string' && latest.code.startsWith('VIP-M-') ? 'monthly' : (typeof latest.code === 'string' && latest.code.startsWith('VIP-Y-') ? 'yearly' : ''));
+                        let expireTs = 0;
+                        if (latest.usedAt) {
+                            if (inferredPlan === 'monthly') expireTs = Number(latest.usedAt) + 30*24*60*60*1000;
+                            else if (inferredPlan === 'yearly') expireTs = Number(latest.usedAt) + 365*24*60*60*1000;
+                        }
+                        userInfo.vipPlan = inferredPlan || '';
+                        userInfo.vipExpireAt = expireTs || 0;
+                        userInfo.isVIP = !expireTs || Date.now() < expireTs;
+                    }
+                } catch(e) {}
+
+                userInfo = applyDailyLoginReward(ensureUserStats(userInfo));
+                if (userInfo.coins > 999) userInfo.coins = 999;
+                localStorage.setItem('taixuanUser', JSON.stringify(userInfo));
+                updateAuthUI(userInfo.username, userInfo.role);
+                loginModal.style.display = 'none';
+                alert('登录成功！');
+            } catch(err) {
+                alert('登录异常：' + (err && err.message ? err.message : '请稍后重试'));
+            }
         });
 
-        // 注册表单提交
-        registerForm.addEventListener('submit', function(e) {
+        // 注册表单提交（接入 Supabase 注册，保留邀请码校验）
+        registerForm.addEventListener('submit', async function(e) {
             e.preventDefault();
 
             const usernameInput = document.getElementById('registerUsername').value;
@@ -7196,46 +7203,33 @@
             }
 
             if (!isInviteValid(inviteCodeInput)) {
-                 alert('邀请码无效或已过期，请联系管理员。');
-                 return;
-             }
+                alert('邀请码无效或已过期，请联系管理员。');
+                return;
+            }
 
             const username = safeText(usernameInput);
             const email = safeText(emailInput);
 
-            const members = getMembers();
-            const existing = members.find(x => x.email === email || x.username === username);
-            if (existing && existing.status !== MEMBER_STATUS.revoked) {
-                alert('该邮箱或用户名已注册，请直接登录或更换。');
-                return;
-            }
-
-            if (existing && existing.status === MEMBER_STATUS.revoked) {
-                // 复活被注销的会员，重新进入待审批
-                existing.username = username;
-                existing.email = email;
-                existing.inviteCode = inviteCodeInput;
-                existing.status = MEMBER_STATUS.pending;
-                existing.createdAt = Date.now();
-                saveMembers(members);
-            } else {
-                const newMember = {
-                    username,
+            try {
+                if (!window.supabaseClient) {
+                    alert('注册服务未初始化，请稍后重试或联系管理员。');
+                    return;
+                }
+                const { data, error } = await supabaseClient.auth.signUp({
                     email,
-                    inviteCode: inviteCodeInput,
-                    status: MEMBER_STATUS.pending,
-                    createdAt: Date.now()
-                };
-                members.push(newMember);
-                saveMembers(members);
+                    password,
+                    options: { data: { username } }
+                });
+                if (error) {
+                    alert('注册失败：' + (error.message || '请稍后再试'));
+                    return;
+                }
+                // 根据 Supabase 默认策略：需邮箱验证后方可登录
+                loginModal.style.display = 'none';
+                alert('注册成功！请前往邮箱完成验证后再登录。');
+            } catch(err) {
+                alert('注册异常：' + (err && err.message ? err.message : '请稍后重试'));
             }
-
-            // 让新注册会员“自动出现在”学员管理面板
-            if (typeof renderStudentsTable === 'function') renderStudentsTable();
-            if (typeof renderWhitelist === 'function') renderWhitelist();
-
-            loginModal.style.display = 'none';
-            alert('注册成功！已提交审批，请等待管理员审核。');
         });
 
         // 更新登录状态UI
@@ -7318,8 +7312,9 @@
                 myCoursesLink.style.display = 'block';
             }
             
-            // 绑定退出按钮事件
-            document.getElementById('logoutBtn').addEventListener('click', function() {
+            // 绑定退出按钮事件（同步登出 Supabase）
+            document.getElementById('logoutBtn').addEventListener('click', async function() {
+                try { if (window.supabaseClient) await supabaseClient.auth.signOut(); } catch(e) {}
                 localStorage.removeItem('taixuanUser');
                 location.reload();
             });
@@ -7736,6 +7731,13 @@
         }, { threshold: 0.3 });
         document.querySelectorAll('section, footer').forEach(el => observer.observe(el));
     </script>
+<script type="module">
+  import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+  const SUPABASE_URL = 'https://YOUR_PROJECT.supabase.co'; // 替换为你的 Supabase 项目 URL
+  const SUPABASE_ANON_KEY = 'YOUR_ANON_KEY'; // 替换为你的 Supabase 匿名密钥
+  window.supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  console.log('Supabase 初始化完成:', !!window.supabaseClient);
+</script>
 <script><!-- 已移除全局粒子效果脚本：保留语录横幅粒子效果 --></script>
 </body>
 </html>
