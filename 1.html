@@ -5055,26 +5055,34 @@
         }
         function revokeMember(email) {
             if (!requireAdmin()) { alert('需要管理员权限'); return false; }
-            const members = getMembers();
-            const m = members.find(x => x.email === email);
-            if (!m) { alert('未找到该会员'); return false; }
-            try {
-                const current = JSON.parse(localStorage.getItem('taixuanUser')) || {};
-                if ((current.email && current.email === m.email) || m.role === 'admin') {
-                    alert('不允许注销当前管理员用户');
-                    return false;
+            (async () => {
+                // Supabase 更新为撤销
+                if (window.supabaseClient) {
+                    const { error } = await supabaseClient.from('members').update({ status: MEMBER_STATUS.revoked }).eq('email', email);
+                    if (error) { alert('Supabase 拒绝失败，请稍后重试'); return; }
                 }
-            } catch(e) {}
-            m.status = MEMBER_STATUS.revoked;
-            saveMembers(members);
-            try {
-                const current = JSON.parse(localStorage.getItem('taixuanUser')) || {};
-                if (current.email && current.email === m.email) {
-                    localStorage.removeItem('taixuanUser');
-                    updateAuthUI('', 'user');
-                }
-            } catch(e) {}
-            alert('已注销该会员');
+                // 本地存储同步
+                const members = getMembers();
+                const m = members.find(x => x.email === email);
+                if (!m) { alert('未找到该会员'); return false; }
+                try {
+                    const current = JSON.parse(localStorage.getItem('taixuanUser')) || {};
+                    if ((current.email && current.email === m.email) || m.role === 'admin') {
+                        alert('不允许注销当前管理员用户');
+                        return false;
+                    }
+                } catch(e) {}
+                m.status = MEMBER_STATUS.revoked;
+                saveMembers(members);
+                try {
+                    const current = JSON.parse(localStorage.getItem('taixuanUser')) || {};
+                    if (current.email && current.email === m.email) {
+                        localStorage.removeItem('taixuanUser');
+                        updateAuthUI('', 'user');
+                    }
+                } catch(e) {}
+                alert('已注销该会员');
+            })();
             return true;
         }
         function addInviteCode(code) {
@@ -5142,10 +5150,41 @@
                 </tr>`;
             }).join('');
         }
-        function renderPendingMembersTable() {
-            const members = getMembers().filter(m => m.status === MEMBER_STATUS.pending);
+        async function renderPendingMembersTable() {
             const tbody = document.getElementById('pendingMembersTableBody');
             if (!tbody) return;
+            // 优先使用 Supabase 获取待审批列表
+            if (window.supabaseClient) {
+                try {
+                    const { data: sessData } = await supabaseClient.auth.getSession();
+                    const supaUser = sessData?.session?.user;
+                    if (supaUser) {
+                        const { data: rows, error } = await supabaseClient
+                            .from('members')
+                            .select('email,status')
+                            .eq('status', MEMBER_STATUS.pending);
+                        if (!error && Array.isArray(rows)) {
+                            tbody.innerHTML = rows.map(m => `
+                                <tr>
+                                    <td>-</td>
+                                    <td>${safeText(m.email || '')}</td>
+                                    <td>-</td>
+                                    <td>-</td>
+                                    <td>
+                                        <div class="action-buttons">
+                                            <button class="save-btn" onclick="approveMember('${safeText(m.email || '')}'); renderWhitelist();">批准</button>
+                                            <button class="delete-btn" onclick="revokeMember('${safeText(m.email || '')}'); renderWhitelist();">拒绝</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            `).join('');
+                            return;
+                        }
+                    }
+                } catch(e) {}
+            }
+            // 回退：使用本地待审批列表
+            const members = getMembers().filter(m => m.status === MEMBER_STATUS.pending);
             const safeMembers = members.map(m => ({
                 username: safeText(m.username || ''),
                 email: safeText(m.email || ''),

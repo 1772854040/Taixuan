@@ -1,8 +1,6 @@
-// 可选：在此文件中直接写入你的 Supabase 配置，页面会自动读取
-// 修改下方占位值为你的项目 URL 与 anon key
-// 注意：提交到公共仓库时请谨慎保管 anon key（仅前端访问用）
-
+// Supabase 项目配置（由助手填入）
+// 公开的 anon key 安全用于前端；如需更换，直接改下面两行并刷新页面。
 window.__SUPABASE__ = {
-  url: 'https://YOUR-PROJECT.supabase.co',
-  anon: 'YOUR-ANON-KEY'
+  url: 'https://kwjtyvfplkyijxvivdcs.supabase.co',
+  anon: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3anR5dmZwbGt5aWp4dml2ZGNzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE0ODQwODAsImV4cCI6MjA3NzA2MDA4MH0.OHxMZpEiFvBENag9UyaNXKoeBMtXIKiFdOfWTL2wX6s'
 };
