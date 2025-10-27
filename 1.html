@@ -3414,6 +3414,7 @@
                     <button id="searchStudentBtn">搜索</button>
                 </div>
 
+                <button class="add-new-btn" id="migrateStudentsGroupsBtn">迁移到 Supabase</button>
                 <button class="add-new-btn" id="addStudentBtn">添加新学员</button>
 
                 <table class="admin-table">
@@ -5211,6 +5212,24 @@
             renderPendingMembersTable();
         }
 
+        // 保证 members 中存在当前用户的记录：如不存在则插入（使用数据库默认 status='pending'）
+        async function ensureMemberRow(userId, email) {
+            try {
+                if (!window.supabaseClient) return;
+                const { data: existing, error: selErr } = await supabaseClient
+                    .from('members')
+                    .select('user_id')
+                    .eq('user_id', userId)
+                    .maybeSingle();
+                if (selErr) return;
+                if (!existing) {
+                    await supabaseClient
+                        .from('members')
+                        .insert({ user_id: userId, email: email, role: 'user' });
+                }
+            } catch(e) { /* 忽略错误 */ }
+        }
+
         // 页面元素
         const loginBtn = document.getElementById('loginBtn');
         const loginModal = document.getElementById('loginModal');
@@ -5377,6 +5396,46 @@
                 }
             }
             
+            // Supabase 学员/分组同步（管理员）与迁移按钮绑定
+            (async function syncStudentsGroupsFromSupabase(){
+              try {
+                if (!window.supabaseClient) return;
+                const { data: sess } = await supabaseClient.auth.getSession();
+                const me = sess?.session?.user; if (!me) return;
+                const { data: row } = await supabaseClient.from('members').select('role').eq('user_id', me.id).limit(1).maybeSingle();
+                if (row?.role !== 'admin') return;
+                const { data: sRows } = await supabaseClient.from('students').select('*');
+                const { data: gRows } = await supabaseClient.from('groups').select('*');
+                if (Array.isArray(sRows)) {
+                  students = sRows.map(r => ({ id: r.id, name: r.name || '', email: r.email || '', group: r.group || '未分组', joinDate: r.joinDate || '', progress: r.progress || 0, studyTime: r.studyTime || 0, courses: Array.isArray(r.courses) ? r.courses : [] }));
+                  localStorage.setItem('taixuanStudents', JSON.stringify(students));
+                }
+                if (Array.isArray(gRows)) {
+                  groups = gRows.map(r => ({ id: r.id, name: r.name || '', manager: r.manager || '', createDate: r.createDate || '', description: r.description || '', level: r.level || 1, studentCount: r.studentCount || 0 }));
+                  localStorage.setItem('taixuanGroups', JSON.stringify(groups));
+                }
+                if (typeof renderStudentsTable === 'function') renderStudentsTable();
+                if (typeof renderGroupsTable === 'function') renderGroupsTable();
+              } catch(e) { console.warn('同步学员/分组失败或未配置 Supabase：', e); }
+            })();
+            const migrateBtn = document.getElementById('migrateStudentsGroupsBtn');
+            if (migrateBtn) {
+              migrateBtn.addEventListener('click', async function(){
+                try {
+                  if (!window.supabaseClient) { alert('未配置 Supabase'); return; }
+                  const { data: sess } = await supabaseClient.auth.getSession();
+                  const me = sess?.session?.user; if (!me) { alert('请先登录'); return; }
+                  const { data: row } = await supabaseClient.from('members').select('role').eq('user_id', me.id).limit(1).maybeSingle();
+                  if (row?.role !== 'admin') { alert('需要管理员权限'); return; }
+                  const sPayload = (Array.isArray(students) ? students : []).map(s => ({ id: s.id, name: s.name, email: s.email, group: s.group, joinDate: s.joinDate, progress: s.progress, studyTime: s.studyTime, courses: Array.isArray(s.courses) ? s.courses : [] }));
+                  const gPayload = (Array.isArray(groups) ? groups : []).map(g => ({ id: g.id, name: g.name, manager: g.manager, createDate: g.createDate, description: g.description, level: g.level, studentCount: g.studentCount || 0 }));
+                  if (sPayload.length) await supabaseClient.from('students').upsert(sPayload, { onConflict: 'id' });
+                  if (gPayload.length) await supabaseClient.from('groups').upsert(gPayload, { onConflict: 'id' });
+                  alert('已迁移本地“学员/分组”到 Supabase');
+                } catch(e) { console.warn('迁移失败：', e); alert('迁移失败：' + (e?.message || e)); }
+              });
+            }
+
             // 绑定首页链接事件（阻止默认并触发返回顶部）
             homeLink.addEventListener('click', function(e) { e.preventDefault(); showHomePage(); });
             homeLogo.addEventListener('click', function(e) { e.preventDefault(); showHomePage(); });
@@ -5727,25 +5786,57 @@
         }
 
         // 渲染学员表格
-        function renderStudentsTable() {
+        async function renderStudentsTable() {
             // VIP状态来源：激活码使用记录（usedBy为用户名）
             let vipUsedUsernames = new Set();
             try {
                 const vipList = JSON.parse(localStorage.getItem('taixuanVipCodes')) || [];
                 vipUsedUsernames = new Set(vipList.filter(i => i.status === 'used' && i.usedBy).map(i => i.usedBy));
             } catch(e) {}
-            // 合并正式学员与会员（未注销）为统一视图
-            const members = getMembers().filter(m => m.status !== MEMBER_STATUS.revoked);
-            const memberRows = members.map((m, idx) => ({
-                id: 'm_' + idx,
-                name: safeText(m.username || ''),
-                email: safeText(m.email || ''),
-                group: '未分组',
-                joinDate: m.createdAt ? new Date(m.createdAt).toLocaleDateString() : '',
-                progress: 0,
-                studyTime: 0,
-                courses: []
-            }));
+
+            // 从 Supabase 拉取成员（未撤销），失败则回退本地
+            let supaMemberRows = [];
+            if (window.supabaseClient) {
+                try {
+                    const { data: sess } = await supabaseClient.auth.getSession();
+                    const supaUser = sess?.session?.user;
+                    if (supaUser) {
+                        const { data: rows, error } = await supabaseClient
+                            .from('members')
+                            .select('email,status,role,created_at')
+                            .neq('status', MEMBER_STATUS.revoked);
+                        if (!error && Array.isArray(rows)) {
+                            supaMemberRows = rows.map((m, idx) => ({
+                                id: 'm_' + idx,
+                                name: safeText((m.email || '').split('@')[0]),
+                                email: safeText(m.email || ''),
+                                group: '未分组',
+                                joinDate: m.created_at ? new Date(m.created_at).toLocaleDateString() : '',
+                                progress: 0,
+                                studyTime: 0,
+                                courses: []
+                            }));
+                        }
+                    }
+                } catch(e) {}
+            }
+
+            // 回退：本地 members
+            let memberRows = supaMemberRows;
+            if (!memberRows.length) {
+                const members = getMembers().filter(m => m.status !== MEMBER_STATUS.revoked);
+                memberRows = members.map((m, idx) => ({
+                    id: 'm_' + idx,
+                    name: safeText(m.username || ''),
+                    email: safeText(m.email || ''),
+                    group: '未分组',
+                    joinDate: m.createdAt ? new Date(m.createdAt).toLocaleDateString() : '',
+                    progress: 0,
+                    studyTime: 0,
+                    courses: []
+                }));
+            }
+
             const memberRowsNoAdmin = memberRows.filter(m => m.name !== adminAccount.username);
             const safeStudents = students.map(student => ({...student, name: safeText(student.name), email: safeText(student.email), group: safeText(student.group), joinDate: safeText(student.joinDate)}));
             const safeStudentsNoAdmin = safeStudents.filter(s => s.name !== adminAccount.username);
@@ -6543,6 +6634,27 @@
             // 保存到localStorage
             localStorage.setItem('taixuanStudents', JSON.stringify(students));
             
+            // 同步保存到 Supabase（单条 upsert）
+            try {
+                if (window.supabaseClient) {
+                    const sidAttr = document.getElementById('editStudentGroup')?.form?.getAttribute('data-student-id');
+                    const sid = sidAttr ? parseInt(sidAttr) : NaN;
+                    const saved = students.find(s => s.id === sid) || students[students.length - 1];
+                    if (saved) {
+                        await supabaseClient.from('students').upsert({
+                            id: saved.id,
+                            name: saved.name,
+                            email: saved.email,
+                            group: saved.group,
+                            joinDate: saved.joinDate,
+                            progress: saved.progress,
+                            studyTime: saved.studyTime,
+                            courses: Array.isArray(saved.courses) ? saved.courses : []
+                        }, { onConflict: 'id' });
+                    }
+                }
+            } catch(e) { console.warn('Supabase 学员保存失败：', e); }
+            
             // 更新学员表格
             renderStudentsTable();
             
@@ -6585,35 +6697,50 @@
             studentEditModal.style.display = 'flex';
         });
 
-        // 删除学员
-        function deleteStudent(studentId) {
-            if (confirm('确定要删除这个学员吗？此操作不可撤销。')) {
-                const target = students.find(s => s.id === studentId);
-                students = students.filter(s => s.id !== studentId);
-                
-                // 保存到localStorage
-                localStorage.setItem('taixuanStudents', JSON.stringify(students));
-                
-                // 若存在同邮箱/同用户名的会员，同步注销其会员资格
-                if (target) {
-                    const mlist = getMembers();
-                    const match = mlist.find(x =>
-                        (x.email && x.email === target.email) ||
-                        (x.username && x.username === target.name)
-                    );
-                    if (match) {
-                        revokeMember(match.email);
+        // 删除学员（同时尝试删除 Supabase 认证用户）
+        async function deleteStudent(studentId) {
+            if (!requireAdmin()) { alert('需要管理员权限'); return; }
+            if (!confirm('确定要删除这个学员吗？此操作不可撤销。')) return;
+            const target = students.find(s => s.id === studentId);
+            let supabaseDeleted = false;
+            // 后端：调用 Edge Function 以删除 auth.users（需已部署并仅管理员可调用）
+            try {
+                if (window.supabaseClient && target && target.email) {
+                    const { data: sess } = await supabaseClient.auth.getSession();
+                    const me = sess?.session?.user; if (!me) throw new Error('not-logged-in');
+                    const { data: row } = await supabaseClient.from('members').select('role').eq('user_id', me.id).limit(1).maybeSingle();
+                    if (row?.role !== 'admin') throw new Error('not-admin');
+                    const { data: victim } = await supabaseClient.from('members').select('user_id').eq('email', target.email).limit(1).maybeSingle();
+                    const victimId = victim?.user_id;
+                    if (victimId) {
+                        const { data: fnData, error: fnErr } = await supabaseClient.functions.invoke('admin-delete-user', { body: { user_id: victimId } });
+                        if (fnErr) { console.warn('Edge Function 删除用户失败：', fnErr); }
+                        else { supabaseDeleted = true; }
                     }
                 }
-
-                // 更新学员表格
-                renderStudentsTable();
-                
-                // 更新分组表格
-                renderGroupsTable();
-                
-                alert('学员已删除');
+            } catch(e) { console.warn('Supabase 删除用户失败或未配置：', e); }
+            
+            // 本地删除学员记录
+            students = students.filter(s => s.id !== studentId);
+            localStorage.setItem('taixuanStudents', JSON.stringify(students));
+            
+            // 同步删除 Supabase 学员行（students 表）
+            try { if (window.supabaseClient) await supabaseClient.from('students').delete().eq('id', studentId); } catch(e) { console.warn('Supabase 学员删除失败：', e); }
+            
+            // 若存在同邮箱/同用户名的会员，本地同步撤销（若后端已删除则跳过）
+            if (target && !supabaseDeleted) {
+                const mlist = getMembers();
+                const match = mlist.find(x =>
+                    (x.email && x.email === target.email) ||
+                    (x.username && x.username === target.name)
+                );
+                if (match) { revokeMember(match.email); }
             }
+
+            // 更新学员表格与分组
+            renderStudentsTable();
+            renderGroupsTable();
+            alert('学员已删除');
         }
 
         // 打开分组编辑弹窗
@@ -6685,6 +6812,26 @@
             // 保存到localStorage
             localStorage.setItem('taixuanGroups', JSON.stringify(groups));
             
+            // 同步保存到 Supabase（单条 upsert）
+            try {
+                if (window.supabaseClient) {
+                    const gidAttr = document.getElementById('editGroupName')?.form?.getAttribute('data-group-id');
+                    const gid = gidAttr ? parseInt(gidAttr) : NaN;
+                    const savedG = groups.find(g => g.id === gid) || groups[groups.length - 1];
+                    if (savedG) {
+                        await supabaseClient.from('groups').upsert({
+                            id: savedG.id,
+                            name: savedG.name,
+                            manager: savedG.manager,
+                            createDate: savedG.createDate,
+                            description: savedG.description,
+                            level: savedG.level,
+                            studentCount: savedG.studentCount || 0
+                        }, { onConflict: 'id' });
+                    }
+                }
+            } catch(e) { console.warn('Supabase 分组保存失败：', e); }
+            
             // 更新分组表格
             renderGroupsTable();
             
@@ -6730,6 +6877,9 @@
                 
                 // 保存到localStorage
                 localStorage.setItem('taixuanGroups', JSON.stringify(groups));
+                
+                // 同步删除 Supabase 分组
+                try { if (window.supabaseClient) await supabaseClient.from('groups').delete().eq('id', groupId); } catch(e) { console.warn('Supabase 分组删除失败：', e); }
                 
                 // 更新分组表格
                 renderGroupsTable();
@@ -7506,6 +7656,12 @@
             }
 
             try {
+                // 尝试快速初始化 Supabase（容错）
+                try {
+                    if (!window.supabaseClient && window.__SUPABASE__ && window.supabase && typeof window.supabase.createClient === 'function') {
+                        window.supabaseClient = window.supabase.createClient(window.__SUPABASE__.url, window.__SUPABASE__.anon);
+                    }
+                } catch(e) {}
                 if (!window.supabaseClient) {
                     alert('认证服务未初始化，请稍后重试或联系管理员。');
                     return;
@@ -7518,6 +7674,10 @@
                     alert('登录失败：' + (error.message || '请检查邮箱或密码'));
                     return;
                 }
+
+                // 保证数据库存在会员行（缺失则插入，状态默认 pending）
+                try { if (data && data.user && data.user.id) { await ensureMemberRow(data.user.id, usernameOrEmail); } } catch(e) {}
+
 
                 // 成功：建立本地用户信息，沿用既有等级/经验/铜币与 VIP 逻辑
                 const meta = (data && data.user && data.user.user_metadata) || {};
@@ -7597,7 +7757,27 @@
                     options: { data: { username } }
                 });
                 if (error) {
-                    alert('注册失败：' + (error.message || '请稍后再试'));
+                    const msg = error.message || '';
+                    // 若邮箱已存在，改为尝试直接登录；若登录也失败，提示找回密码
+                    if (/already registered|already exists|email.*registered/i.test(msg)) {
+                        const { data: signInData, error: signInErr } = await supabaseClient.auth.signInWithPassword({ email, password });
+                        if (!signInErr && signInData && signInData.user) {
+                            const userId = signInData.user.id;
+                            await ensureMemberRow(userId, email);
+                            let userInfo = { username, email, role: 'user', isLoggedIn: true };
+                            userInfo = applyDailyLoginReward(ensureUserStats(userInfo));
+                            if (userInfo.coins > 999) userInfo.coins = 999;
+                            localStorage.setItem('taixuanUser', JSON.stringify(userInfo));
+                            updateAuthUI(userInfo.username, userInfo.role);
+                            loginModal.style.display = 'none';
+                            alert('该邮箱已注册，已为您自动登录');
+                            return;
+                        } else {
+                            alert('该邮箱已注册，请使用登录或“忘记密码”找回。');
+                            return;
+                        }
+                    }
+                    alert('注册失败：' + msg);
                     return;
                 }
                 // 写入待审批会员记录（用于白名单面板查看和管理员批准）
@@ -8166,6 +8346,7 @@
         document.querySelectorAll('section, footer').forEach(el => observer.observe(el));
     </script>
 <script src="./supabase.config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script type="module">
   let createClient;
   try {
@@ -8174,7 +8355,28 @@
     try {
       ({ createClient } = await import('https://esm.sh/@supabase/supabase-js@2'));
     } catch (e2) {
-      ({ createClient } = await import('https://unpkg.com/@supabase/supabase-js@2.45.4/+esm'));
+      try {
+        ({ createClient } = await import('https://unpkg.com/@supabase/supabase-js@2.45.4/+esm'));
+      } catch (e3) {
+        // UMD 兜底：加载全局构建，避免 ESM 被拦截
+        try {
+          await new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js';
+            s.onload = resolve;
+            s.onerror = reject;
+            document.head.appendChild(s);
+          });
+          if (window.supabase && typeof window.supabase.createClient === 'function') {
+            createClient = window.supabase.createClient;
+            console.log('Supabase UMD 版本已加载');
+          } else {
+            console.warn('未检测到 Supabase UMD 全局变量');
+          }
+        } catch (e4) {
+          console.error('加载 Supabase 失败（ESM 与 UMD 都不可用）：', e4);
+        }
+      }
     }
   }
 
@@ -8285,6 +8487,16 @@
 
   // 初始化
   await initSupabase();
+  // 会话自检：如已登录，确保 members 存在行（防止已有账号未写入白名单）
+  try {
+    if (window.supabaseClient) {
+      const { data } = await window.supabaseClient.auth.getSession();
+      const u = data?.session?.user;
+      if (u) {
+        await ensureMemberRow(u.id, u.email || '');
+      }
+    }
+  } catch(e) { /* 忽略自检错误 */ }
 </script>
 <!-- Supabase 动态配置弹窗（仅本地存储） -->
 <div id="supabaseConfigModal" style="position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.4);z-index:9999;">

@@ -1377,7 +1377,8 @@
                         <button>搜索</button>
                     </div>
 
-                    <button class="mobile-add-new-btn">添加新学员</button>
+                    <button class="mobile-add-new-btn" id="mobileMigrateStudentsGroupsBtn">迁移到 Supabase</button>
+                    <button class="mobile-add-new-btn" id="mobileAddStudentBtn" style="margin-left:8px;">添加新学员</button>
 
                     <table class="mobile-admin-table">
                         <thead>
@@ -1573,7 +1574,7 @@
                         <button>搜索</button>
                     </div>
 
-                    <button class="mobile-add-new-btn">添加新分组</button>
+                    <button class="mobile-add-new-btn" id="mobileAddGroupBtn">添加新分组</button>
 
                     <table class="mobile-admin-table">
                         <thead>
@@ -2228,6 +2229,255 @@
                     }
                 });
             });
+
+            // === 学员/分组：动态渲染 + Supabase 同步/迁移（移动端） ===
+            let students = [];
+            let groups = [];
+
+            function getLocalStudents(){ try { return JSON.parse(localStorage.getItem('taixuanStudents')) || []; } catch(_) { return []; } }
+            function saveLocalStudents(list){ localStorage.setItem('taixuanStudents', JSON.stringify(list)); }
+            function getLocalGroups(){ try { return JSON.parse(localStorage.getItem('taixuanGroups')) || []; } catch(_) { return []; } }
+            function saveLocalGroups(list){ localStorage.setItem('taixuanGroups', JSON.stringify(list)); }
+
+            function renderMobileStudentsTable(){
+                const tbody = document.querySelector('#mobile-students-panel .mobile-admin-table tbody');
+                if (!tbody) return;
+                if (!students.length) { tbody.innerHTML = ''; return; }
+                tbody.innerHTML = students.map(s => `
+                    <tr data-student-id="${safeText(String(s.id||''))}">
+                        <td>${safeText(s.name||s.email||'')}</td>
+                        <td>${safeText(s.group||'未分组')}</td>
+                        <td>
+                            <div class="mobile-progress-bar">
+                                <div class="mobile-progress-fill" style="width: ${Math.max(0, Math.min(100, Number(s.progress||0)))}%"></div>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="mobile-action-buttons">
+                                <button class="mobile-edit-btn">编辑</button>
+                                <button class="mobile-delete-btn">删除</button>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+
+            function renderMobileGroupsTable(){
+                const tbody = document.querySelector('#mobile-groups-panel .mobile-admin-table tbody');
+                if (!tbody) return;
+                const counts = {};
+                students.forEach(s => { const g = s.group || ''; if (!counts[g]) counts[g]=0; counts[g]++; });
+                if (!groups.length) { tbody.innerHTML=''; return; }
+                tbody.innerHTML = groups.map(g => {
+                    const count = counts[g.name||''] || 0;
+                    return `
+                        <tr data-group-name="${safeText(g.name||'')}">
+                            <td>${safeText(g.name||'')}</td>
+                            <td>${safeText(String(count))}</td>
+                            <td>${safeText(g.manager||'')}</td>
+                            <td>
+                                <div class="mobile-action-buttons">
+                                    <button class="mobile-edit-btn">编辑</button>
+                                    <button class="mobile-delete-btn">删除</button>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            async function isAdminUserMobile(){
+                try {
+                    if (window.supabaseClient) {
+                        const { data } = await supabaseClient.auth.getSession();
+                        const me = data.session?.user; if (!me) return false;
+                        const { data: row } = await supabaseClient.from('members').select('role').eq('user_id', me.id).limit(1).maybeSingle();
+                        return row?.role==='admin';
+                    }
+                    const u = JSON.parse(localStorage.getItem('taixuanUser')); return !!(u && u.role==='admin');
+                } catch(_) { return false; }
+            }
+
+            async function syncStudentsGroupsFromSupabaseMobile(){
+                if (!window.supabaseClient) return;
+                const isAdmin = await isAdminUserMobile(); if (!isAdmin) return;
+                try {
+                    const { data: sList, error: sErr } = await supabaseClient.from('students').select('*').order('created_at', { ascending: false });
+                    const { data: gList, error: gErr } = await supabaseClient.from('groups').select('*').order('created_at', { ascending: false });
+                    if (sErr) console.warn('拉取 students 失败：', sErr.message);
+                    if (gErr) console.warn('拉取 groups 失败：', gErr.message);
+                    const s = Array.isArray(sList) ? sList.map(row => ({
+                        id: row.id,
+                        name: row.name || '',
+                        email: row.email || '',
+                        group: row["group"] || '',
+                        joinDate: row.joinDate || '',
+                        progress: Number(row.progress||0),
+                        studyTime: Number(row.studyTime||0),
+                        courses: row.courses || []
+                    })) : [];
+                    const g = Array.isArray(gList) ? gList.map(row => ({
+                        name: row.name || '',
+                        manager: row.manager || '',
+                        createDate: row.createDate || '',
+                        description: row.description || '',
+                        level: Number(row.level||1)
+                    })) : [];
+                    saveLocalStudents(s); saveLocalGroups(g);
+                    students = s; groups = g;
+                    renderMobileStudentsTable(); renderMobileGroupsTable();
+                    console.log('已从 Supabase 同步学员与分组（移动端）');
+                } catch(e) { console.warn('Supabase 同步失败（移动端）：', e); }
+            }
+
+            // 初始化：加载本地并尝试从 Supabase 同步
+            students = getLocalStudents(); groups = getLocalGroups();
+            renderMobileStudentsTable(); renderMobileGroupsTable();
+            syncStudentsGroupsFromSupabaseMobile();
+
+            // 迁移按钮：将本地数据写入 Supabase
+            const mobileMigrateBtn = document.getElementById('mobileMigrateStudentsGroupsBtn');
+            if (mobileMigrateBtn) {
+                mobileMigrateBtn.addEventListener('click', async function(){
+                    const isAdmin = await isAdminUserMobile(); if (!isAdmin) { alert('需要管理员权限'); return; }
+                    if (!window.supabaseClient) { alert('未配置 Supabase'); return; }
+                    try { await supabaseClient.rpc('link_students_to_auth_by_email_bulk'); } catch(e){ console.warn('批量邮箱匹配更新失败（移动端）：', e); }
+                    const s = getLocalStudents(); const g = getLocalGroups();
+                    try {
+                        if (s.length) {
+                            await supabaseClient.from('students').upsert(
+                                s.map(x => ({
+                                    id: x.id,
+                                    name: x.name || '',
+                                    email: x.email || '',
+                                    group: x.group || '',
+                                    joinDate: x.joinDate || '',
+                                    progress: Number(x.progress||0),
+                                    studyTime: Number(x.studyTime||0),
+                                    courses: Array.isArray(x.courses)? x.courses : []
+                                })),
+                                { onConflict: 'id' }
+                            );
+                        }
+                        if (g.length) {
+                            await supabaseClient.from('groups').upsert(
+                                g.map(y => ({
+                                    name: y.name || '',
+                                    manager: y.manager || '',
+                                    createDate: y.createDate || '',
+                                    description: y.description || '',
+                                    level: Number(y.level||1)
+                                })),
+                                { onConflict: 'name' }
+                            );
+                        }
+                        alert('已将本地学员与分组迁移到 Supabase');
+                    } catch(e) {
+                        console.error('迁移失败（移动端）：', e); alert('迁移失败：' + (e?.message || '未知错误'));
+                    }
+                });
+            }
+
+            // 添加新学员（简单Prompt版）
+            const mobileAddStudentBtn = document.getElementById('mobileAddStudentBtn');
+            if (mobileAddStudentBtn) {
+                mobileAddStudentBtn.addEventListener('click', async function(){
+                    const isAdmin = await isAdminUserMobile(); if (!isAdmin) { alert('需要管理员权限'); return; }
+                    const name = prompt('输入学员姓名：') || '';
+                    const email = prompt('输入学员邮箱：') || '';
+                    const groupName = prompt('输入分组名称（可留空）：') || '';
+                    const progress = Number(prompt('输入进度（0-100）：') || '0');
+                    const id = Date.now();
+                    const newItem = { id, name, email, group: groupName, joinDate: new Date().toISOString().slice(0,10), progress: isNaN(progress)?0:progress, studyTime: 0, courses: [] };
+                    students.push(newItem); saveLocalStudents(students); renderMobileStudentsTable();
+                    try {
+                        if (window.supabaseClient) {
+                            await supabaseClient.from('students').upsert({
+                                id, name, email, group: groupName, joinDate: newItem.joinDate, progress: newItem.progress, studyTime: 0, courses: []
+                            }, { onConflict: 'id' });
+                        }
+                    } catch(e){ console.warn('新增学员同步失败（移动端）：', e); }
+                    alert('已添加新学员');
+                });
+            }
+
+            // 添加新分组（简单Prompt版）
+            const mobileAddGroupBtn = document.getElementById('mobileAddGroupBtn');
+            if (mobileAddGroupBtn) {
+                mobileAddGroupBtn.addEventListener('click', async function(){
+                    const isAdmin = await isAdminUserMobile(); if (!isAdmin) { alert('需要管理员权限'); return; }
+                    const name = prompt('输入分组名称：') || '';
+                    if (!name) { alert('分组名称不可为空'); return; }
+                    const manager = prompt('输入负责人：') || '';
+                    const level = Number(prompt('输入分组等级（数字）：') || '1');
+                    const createDate = new Date().toISOString().slice(0,10);
+                    const item = { name, manager, createDate, description: '', level: isNaN(level)?1:level };
+                    // 去重（按名称）
+                    const exists = groups.find(x => (x.name||'') === name);
+                    if (exists) { Object.assign(exists, item); } else { groups.push(item); }
+                    saveLocalGroups(groups); renderMobileGroupsTable();
+                    try {
+                        if (window.supabaseClient) {
+                            await supabaseClient.from('groups').upsert(item, { onConflict: 'name' });
+                        }
+                    } catch(e){ console.warn('新增分组同步失败（移动端）：', e); }
+                    alert('已添加/更新分组');
+                });
+            }
+
+            // 学员/分组行内操作（编辑/删除）
+            document.addEventListener('click', async function(e){
+                const t = e.target;
+                // 学员删除
+                if (t.classList && t.classList.contains('mobile-delete-btn')) {
+                    const tr = t.closest('tr');
+                    const sid = tr && tr.dataset.studentId;
+                    const gname = tr && tr.dataset.groupName;
+                    if (sid) {
+                        const idNum = Number(sid);
+                        students = students.filter(s => Number(s.id) !== idNum); saveLocalStudents(students); renderMobileStudentsTable();
+                        try { if (window.supabaseClient) await supabaseClient.from('students').delete().eq('id', idNum); } catch(e) { console.warn('删除学员同步失败（移动端）：', e); }
+                        alert('已删除学员');
+                        return;
+                    }
+                    if (gname) {
+                        groups = groups.filter(g => (g.name||'') !== gname); saveLocalGroups(groups); renderMobileGroupsTable();
+                        try { if (window.supabaseClient) await supabaseClient.from('groups').delete().eq('name', gname); } catch(e) { console.warn('删除分组同步失败（移动端）：', e); }
+                        alert('已删除分组');
+                        return;
+                    }
+                }
+                // 学员编辑
+                if (t.classList && t.classList.contains('mobile-edit-btn')) {
+                    const tr = t.closest('tr');
+                    const sid = tr && tr.dataset.studentId;
+                    const gname = tr && tr.dataset.groupName;
+                    if (sid) {
+                        const idNum = Number(sid);
+                        const s = students.find(x => Number(x.id) === idNum); if (!s) return;
+                        const name = prompt('修改学员姓名：', s.name || '') || '';
+                        const email = prompt('修改学员邮箱：', s.email || '') || '';
+                        const groupName = prompt('修改分组名称：', s.group || '') || '';
+                        const progress = Number(prompt('修改进度（0-100）：', String(s.progress||0)) || String(s.progress||0));
+                        Object.assign(s, { name, email, group: groupName, progress: isNaN(progress)?0:progress });
+                        saveLocalStudents(students); renderMobileStudentsTable();
+                        try { if (window.supabaseClient) await supabaseClient.from('students').upsert({ id: idNum, name, email, group: groupName, joinDate: s.joinDate || '', progress: s.progress||0, studyTime: Number(s.studyTime||0), courses: Array.isArray(s.courses)? s.courses : [] }, { onConflict: 'id' }); } catch(e){ console.warn('编辑学员同步失败（移动端）：', e); }
+                        alert('已更新学员信息');
+                        return;
+                    }
+                    if (gname) {
+                        const g = groups.find(x => (x.name||'') === gname); if (!g) return;
+                        const name2 = prompt('修改分组名称：', g.name || '') || '';
+                        const manager = prompt('修改负责人：', g.manager || '') || '';
+                        const level = Number(prompt('修改等级（数字）：', String(g.level||1)) || String(g.level||1));
+                        Object.assign(g, { name: name2, manager, level: isNaN(level)?1:level });
+                        saveLocalGroups(groups); renderMobileGroupsTable();
+                        try { if (window.supabaseClient) await supabaseClient.from('groups').upsert({ name: name2, manager, createDate: g.createDate || '', description: g.description || '', level: g.level||1 }, { onConflict: 'name' }); } catch(e){ console.warn('编辑分组同步失败（移动端）：', e); }
+                        alert('已更新分组信息');
+                        return;
+                    }
+                }
+            });
             
             // 音乐设置事件（管理员）
             (function(){
@@ -2305,29 +2555,69 @@
             // 激活VIP事件
             const vipActivateBtn = document.getElementById('vipActivateBtn');
             if (vipActivateBtn) {
-                vipActivateBtn.addEventListener('click', function(){
+                vipActivateBtn.addEventListener('click', async function(){
                     const input = document.getElementById('vipActivationInput');
                     const code = (input && input.value || '').trim();
                     if (!code) { alert('请输入激活码'); return; }
                     const userInfo = JSON.parse(localStorage.getItem('taixuanUser')) || {};
                     if (!userInfo || !userInfo.isLoggedIn) { alert('请先登录再激活VIP'); return; }
+
+                    // 优先使用 Supabase 校验与更新；失败则回退到本地
+                    if (window.supabaseClient) {
+                        try {
+                            const { data: sess } = await supabaseClient.auth.getSession();
+                            const me = sess.session?.user; if (!me) { alert('请先登录'); return; }
+                            const approved = await (window.isApprovedCurrentUserAsyncMobile?.() || Promise.resolve(true));
+                            if (!approved) { alert('请先通过白名单审批后再激活VIP'); return; }
+
+                            const { data: item, error: codeErr } = await supabaseClient.from('vip_codes').select('*').eq('code', code).limit(1).maybeSingle();
+                            if (codeErr) { throw codeErr; }
+                            if (!item) { alert('未找到该激活码，请确认后再试'); return; }
+                            if (item.status === 'used') { alert('该激活码已被使用'); return; }
+                            const inferredPlan = item.plan || (typeof item.code === 'string' && item.code.startsWith('VIP-M-') ? 'monthly' : (typeof item.code === 'string' && item.code.startsWith('VIP-Y-') ? 'yearly' : ''));
+                            const desiredPlan2 = localStorage.getItem('vipDesiredPlan') || '';
+                            if (desiredPlan2 && inferredPlan && inferredPlan !== desiredPlan2) { alert(`您选择的是${desiredPlan2==='yearly'?'年度':'月度'}赞助，请使用对应类型的激活码`); return; }
+
+                            // 当前会员状态
+                            let currentPlan = '';
+                            let currentExpire = 0;
+                            try {
+                                const { data: m } = await supabaseClient.from('members').select('vip_plan,vip_expire_at').eq('user_id', me.id).limit(1).maybeSingle();
+                                currentPlan = m?.vip_plan || '';
+                                currentExpire = Number(m?.vip_expire_at || 0);
+                            } catch(e) {}
+                            const nowTs = Date.now();
+                            if (currentExpire && nowTs < currentExpire) {
+                                if (currentPlan && inferredPlan && currentPlan !== inferredPlan) {
+                                    alert(`当前为${currentPlan==='yearly'?'年度':'月度'}VIP（未过期），不能使用${inferredPlan==='yearly'?'年度':'月度'}激活码`);
+                                    return;
+                                }
+                            }
+                            const expireTs = inferredPlan === 'monthly' ? (nowTs + 30*24*60*60*1000) : (inferredPlan === 'yearly' ? (nowTs + 365*24*60*60*1000) : 0);
+                            try { await supabaseClient.from('vip_codes').update({ status: 'used', usedBy: me.email || userInfo.username || '', usedAt: nowTs, plan: inferredPlan || null }).eq('code', code); } catch(e) {}
+                            try { await supabaseClient.from('members').update({ vip_plan: inferredPlan || null, vip_expire_at: expireTs || null }).eq('user_id', me.id); } catch(e) {}
+                            const newUser = { ...userInfo, vipPlan: inferredPlan || '', vipExpireAt: expireTs || 0, isVIP: !expireTs || Date.now() < expireTs };
+                            localStorage.setItem('taixuanUser', JSON.stringify(newUser));
+                            alert('VIP已激活，感谢赞助！');
+                            updateMobileAuthUI(me.email || newUser.username, newUser.role || 'user');
+                            const vipModal = document.getElementById('vip-activate-modal'); if (vipModal) vipModal.classList.remove('active');
+                            return;
+                        } catch(e) {
+                            console.warn('Supabase 激活失败，回退本地：', e);
+                        }
+                    }
+
+                    // 本地模式：使用 localStorage 更新
                     const list = getVipCodes();
                     const item = list.find(x => x.code === code);
                     if (!item) { alert('未找到该激活码，请确认后再试'); return; }
                     if (item.status === 'used') { alert('该激活码已被使用'); return; }
-                    // 预判激活码类型
                     const inferredPlan = item.plan || (typeof item.code === 'string' && item.code.startsWith('VIP-M-') ? 'monthly' : (typeof item.code === 'string' && item.code.startsWith('VIP-Y-') ? 'yearly' : ''));
-                    // 检查与所选赞助类型一致性
                     const desiredPlan2 = localStorage.getItem('vipDesiredPlan') || '';
-                    if (desiredPlan2 && inferredPlan && inferredPlan !== desiredPlan2) {
-                        alert(`您选择的是${desiredPlan2==='yearly'?'年度':'月度'}赞助，请使用对应类型的激活码`);
-                        return;
-                    }
-                    // 检查当前会员类型与到期，禁止跨类型激活
+                    if (desiredPlan2 && inferredPlan && inferredPlan !== desiredPlan2) { alert(`您选择的是${desiredPlan2==='yearly'?'年度':'月度'}赞助，请使用对应类型的激活码`); return; }
                     let currentPlan = userInfo.vipPlan || '';
                     let currentExpire = Number(userInfo.vipExpireAt || 0);
                     if (!currentExpire || Date.now() >= currentExpire) {
-                        // 尝试从激活码记录推断当前状态
                         try {
                             const usedByUser = list.filter(i => i.status === 'used' && i.usedBy === userInfo.username);
                             if (usedByUser.length) {
@@ -2341,27 +2631,19 @@
                             }
                         } catch(e) {}
                     }
-                    if (currentPlan && currentExpire && Date.now() < currentExpire && inferredPlan && inferredPlan !== currentPlan) {
-                        alert(`当前为${currentPlan==='yearly'?'年度':'月度'}VIP（未过期），不能使用${inferredPlan==='yearly'?'年度':'月度'}激活码`);
-                        return;
-                    }
-                    // 标记使用并写入到期
+                    if (currentPlan && currentExpire && Date.now() < currentExpire && inferredPlan && inferredPlan !== currentPlan) { alert(`当前为${currentPlan==='yearly'?'年度':'月度'}VIP（未过期），不能使用${inferredPlan==='yearly'?'年度':'月度'}激活码`); return; }
+                    const nowTs = Date.now();
+                    const expireTs = inferredPlan === 'monthly' ? (nowTs + 30*24*60*60*1000) : (inferredPlan === 'yearly' ? (nowTs + 365*24*60*60*1000) : 0);
                     item.status = 'used';
                     item.usedBy = userInfo.username;
-                    item.usedAt = Date.now();
+                    item.usedAt = nowTs;
                     if (!item.plan && inferredPlan) { item.plan = inferredPlan; }
                     saveVipCodes(list);
-                    let expireTs = 0;
-                    if (item.usedAt) {
-                        if (inferredPlan === 'monthly') expireTs = Number(item.usedAt) + 30*24*60*60*1000;
-                        else if (inferredPlan === 'yearly') expireTs = Number(item.usedAt) + 365*24*60*60*1000;
-                    }
-                    userInfo.vipPlan = inferredPlan || '';
-                    userInfo.vipExpireAt = expireTs || 0;
-                    userInfo.isVIP = !expireTs || Date.now() < expireTs;
-                    localStorage.setItem('taixuanUser', JSON.stringify(userInfo));
+                    const newUser = { ...userInfo, vipPlan: inferredPlan || '', vipExpireAt: expireTs || 0, isVIP: !expireTs || Date.now() < expireTs };
+                    localStorage.setItem('taixuanUser', JSON.stringify(newUser));
                     alert('VIP已激活，感谢赞助！');
-                    updateMobileAuthUI(userInfo.username, userInfo.role);
+                    updateMobileAuthUI(newUser.username, newUser.role || 'user');
+                    const vipModal = document.getElementById('vip-activate-modal'); if (vipModal) vipModal.classList.remove('active');
                 });
             }
             
@@ -2385,13 +2667,46 @@
                 return prefix + s;
             }
             
-            // VIP激活码面板渲染与事件
-            function renderVipCodes(){
+            // VIP激活码（优先使用 Supabase，回退本地）
+            async function fetchVipCodes(){
+                try {
+                    if (!window.supabaseClient) return getVipCodes();
+                    const { data, error } = await supabaseClient.from('vip_codes').select('*').order('createdAt', { ascending: false });
+                    if (error) return getVipCodes();
+                    return Array.isArray(data) ? data : [];
+                } catch(e){ return getVipCodes(); }
+            }
+            async function addVipCode(plan){
+                const code = generateVipCode(plan);
+                const record = { code, plan, status: 'unused', createdAt: Date.now(), issuedTo: '' };
+                try {
+                    if (!window.supabaseClient) {
+                        const list = getVipCodes(); list.push(record); saveVipCodes(list); return code;
+                    }
+                    const { data } = await supabaseClient.auth.getSession();
+                    const email = data.session?.user?.email || '';
+                    record.issuedTo = email || '管理员';
+                    await supabaseClient.from('vip_codes').insert(record);
+                    return code;
+                } catch(e){ const list = getVipCodes(); list.push(record); saveVipCodes(list); return code; }
+            }
+            async function deleteVipCode(code){
+                try {
+                    if (!window.supabaseClient) {
+                        const list = getVipCodes().filter(i => i.code !== code); saveVipCodes(list); return true;
+                    }
+                    await supabaseClient.from('vip_codes').delete().eq('code', code);
+                    return true;
+                } catch(e){ const list = getVipCodes().filter(i => i.code !== code); saveVipCodes(list); return true; }
+            }
+            
+            // VIP激活码面板渲染
+            async function renderVipCodes(){
                 const panel = document.getElementById('mobile-vipcodes-panel');
                 if (!panel) return;
                 const tbody = panel.querySelector('#vipCodesTableBody');
                 const empty = panel.querySelector('#vipCodesEmpty');
-                const list = getVipCodes();
+                const list = await fetchVipCodes();
                 if (!tbody) return;
                 if (!list.length) {
                     if (empty) empty.style.display = 'table-row';
@@ -2418,25 +2733,27 @@
                 }).join('');
             }
 
-            document.addEventListener('click', function(e){
+            document.addEventListener('click', async function(e){
                 const panel = document.getElementById('mobile-vipcodes-panel');
                 if (!panel || panel.style.display === 'none') return;
                 const target = e.target;
                 if (target.id === 'vipNewMonthlyBtn' || target.id === 'vipNewYearlyBtn') {
-                    function isAdminUser(){
-                        try { const u = JSON.parse(localStorage.getItem('taixuanUser')); return !!(u && u.role === 'admin'); } catch(e){ return false; }
-                    }
-                    const userInfo = JSON.parse(localStorage.getItem('taixuanUser')) || {};
-                    if (!userInfo || !userInfo.isLoggedIn) {
-                        alert('请先登录后再生成激活码');
-                        return;
-                    }
-                    if (!isAdminUser()) { alert('需要管理员权限'); return; }
+                    // 管理员校验：优先使用 Supabase members(role='admin')，回退本地
+                    const isAdmin = await (async () => {
+                        try {
+                            if (!window.supabaseClient) {
+                                const u = JSON.parse(localStorage.getItem('taixuanUser')); return !!(u && u.role === 'admin');
+                            }
+                            const { data } = await supabaseClient.auth.getSession();
+                            const me = data.session?.user; if (!me) return false;
+                            const { data: row, error } = await supabaseClient
+                                .from('members').select('role').eq('user_id', me.id).limit(1).maybeSingle();
+                            if (error) return false; return row?.role === 'admin';
+                        } catch(_) { return false; }
+                    })();
+                    if (!isAdmin) { alert('需要管理员权限'); return; }
                     const plan = target.id === 'vipNewYearlyBtn' ? 'yearly' : 'monthly';
-                    const code = generateVipCode(plan);
-                    const list = getVipCodes();
-                    list.push({ code, plan, status: 'unused', createdAt: Date.now(), issuedTo: userInfo.username });
-                    saveVipCodes(list);
+                    const code = await addVipCode(plan);
                     renderVipCodes();
                     alert(`已生成${plan==='yearly'?'年度':'月度'}VIP激活码：` + code);
                     return;
@@ -2446,15 +2763,14 @@
                     const code = tr && tr.dataset.code;
                     if (!code) return;
                     try { navigator.clipboard.writeText(code); alert('已复制：' + code); }
-                    catch { alert('请手动复制：' + code); }
+                    catch (e) { alert('请手动复制：' + code); }
                     return;
                 }
                 if (target.classList && target.classList.contains('delete-code-btn')) {
                     const tr = target.closest('tr');
                     const code = tr && tr.dataset.code;
                     if (!code) return;
-                    const list = getVipCodes().filter(i => i.code !== code);
-                    saveVipCodes(list);
+                    await deleteVipCode(code);
                     renderVipCodes();
                     return;
                 }
@@ -2475,6 +2791,26 @@
                             overlay.classList.add('active');
                             return;
                         }
+                        // 白名单 gating：必须通过审批
+                        try {
+                            if (window.supabaseClient) {
+                                const approved = await (async () => {
+                                    try {
+                                        const { data } = await supabaseClient.auth.getSession();
+                                        const u = data.session?.user; if (!u) return false;
+                                        const { data: row } = await supabaseClient.from('members').select('status').eq('user_id', u.id).limit(1).maybeSingle();
+                                        const st = row?.status;
+                                        if (st === 'active') return true;
+                                        if (!st) {
+                                            const { data: row2 } = await supabaseClient.from('members').select('status').eq('email', u.email).limit(1).maybeSingle();
+                                            return row2?.status === 'active';
+                                        }
+                                        return false;
+                                    } catch(_) { return false; }
+                                })();
+                                if (!approved) { alert('请先通过白名单审批后再激活VIP'); return; }
+                            }
+                        } catch(_) {}
                         const vipModal = document.getElementById('vip-activate-modal');
                         if (vipModal) {
                             vipModal.classList.add('active');
@@ -2514,71 +2850,83 @@
                 updateMobileAuthUI(userInfo.username, userInfo.role);
             }
             
-            // 登录表单提交
-            document.getElementById('mobile-login-form').addEventListener('submit', function(e) {
+            // 登录表单提交（接入 Supabase 邮箱+密码认证，保留本地回退）
+            document.getElementById('mobile-login-form').addEventListener('submit', async function(e) {
                 e.preventDefault();
-                
-                const usernameInput = document.getElementById('mobile-login-username').value;
+                const email = (document.getElementById('mobile-login-username').value || '').trim();
                 const password = document.getElementById('mobile-login-password').value;
-                const username = usernameInput;
-                
-                // 检查是否是管理员登录
-                if (username === adminAccount.username && password === adminAccount.password) {
-                    const userInfo = {
-                        username: username,
-                        role: adminAccount.role,
-                        isLoggedIn: true
-                    };
-                    localStorage.setItem('taixuanUser', JSON.stringify(userInfo));
-                    updateMobileAuthUI(username, adminAccount.role);
+
+                // 优先使用 Supabase 认证
+                if (window.supabaseClient) {
+                    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+                    if (error) { alert('登录失败：' + error.message); return; }
+                    const me = data.user;
+                    try { if (me?.id) await ensureMemberRow(me.id, me.email || ''); } catch(_) {}
+                    try { await supabaseClient.rpc('link_my_student_record'); } catch(_) {}
+                    let role = 'user';
+                    try {
+                        const { data: row } = await supabaseClient.from('members').select('role').eq('user_id', me.id).limit(1).maybeSingle();
+                        if (row?.role === 'admin') role = 'admin';
+                    } catch(_) {}
+                    localStorage.setItem('taixuanUser', JSON.stringify({ username: me.email || email, role, isLoggedIn: true }));
+                    updateMobileAuthUI(me.email || email, role);
                     loginModal.classList.remove('active');
                     overlay.classList.remove('active');
-                    alert('管理员登录成功！');
+                    alert('登录成功！');
                     return;
                 }
-                
-                // 普通用户登录（净化显示）
-                const safeUsername = safeText(username);
-                const userInfo = {
-                    username: safeUsername,
-                    role: 'user',
-                    isLoggedIn: true
-                };
+
+                // 回退：本地模拟登录（仅在未配置 Supabase 时）
+                const safeUsername = safeText(email);
+                let role = 'user';
+                try { if (email === adminAccount.username && password === adminAccount.password) role = 'admin'; } catch(_) {}
+                const userInfo = { username: safeUsername, role, isLoggedIn: true };
                 localStorage.setItem('taixuanUser', JSON.stringify(userInfo));
-                updateMobileAuthUI(safeUsername, 'user');
+                updateMobileAuthUI(safeUsername, role);
                 loginModal.classList.remove('active');
                 overlay.classList.remove('active');
-                alert('登录成功！');
+                alert(`登录成功！（本地模式${role==='admin' ? '，管理员' : ''}）`);
             });
             
-            // 注册表单提交
-            document.getElementById('mobile-register-form').addEventListener('submit', function(e) {
+            // 注册表单提交（接入 Supabase 注册，自动写入 members 并尝试登录）
+            document.getElementById('mobile-register-form').addEventListener('submit', async function(e) {
                 e.preventDefault();
-                
-                const usernameInput = document.getElementById('mobile-register-username').value;
-                const emailInput = document.getElementById('mobile-register-email').value;
+                const email = (document.getElementById('mobile-register-email').value || '').trim();
                 const password = document.getElementById('mobile-register-password').value;
                 const confirmPassword = document.getElementById('mobile-register-confirm').value;
-                
-                if (password !== confirmPassword) {
-                    alert('两次输入的密码不一致，请重新输入！');
+                if (password !== confirmPassword) { alert('两次输入的密码不一致，请重新输入！'); return; }
+
+                if (window.supabaseClient) {
+                    const { data, error } = await supabaseClient.auth.signUp({ email, password });
+                    if (error) { alert('注册失败：' + error.message); return; }
+                    const sess = data.session;
+                    // 若未自动登录（邮箱确认开启），提示并结束；否则自愈 members
+                    if (sess?.user) {
+                        try { await ensureMemberRow(sess.user.id, sess.user.email || ''); } catch(_) {}
+                        const me = sess.user;
+                        let role = 'user';
+                        try {
+                            const { data: row } = await supabaseClient.from('members').select('role').eq('user_id', me.id).limit(1).maybeSingle();
+                            if (row?.role === 'admin') role = 'admin';
+                        } catch(_) {}
+                        localStorage.setItem('taixuanUser', JSON.stringify({ username: me.email || email, role, isLoggedIn: true }));
+                        updateMobileAuthUI(me.email || email, role);
+                        loginModal.classList.remove('active');
+                        overlay.classList.remove('active');
+                        alert('注册成功！已自动登录。');
+                    } else {
+                        alert('注册成功！但需邮箱验证或配置允许自动登录。');
+                    }
                     return;
                 }
-                
-                const username = safeText(usernameInput);
-                const email = safeText(emailInput);
-                const userInfo = {
-                    username: username,
-                    email: email,
-                    role: 'user',
-                    isLoggedIn: true
-                };
-                
+
+                // 回退：本地注册（仅在未配置 Supabase 时）
+                const userInfo = { username: safeText(email), email: safeText(email), role: 'user', isLoggedIn: true };
                 localStorage.setItem('taixuanUser', JSON.stringify(userInfo));
-                updateMobileAuthUI(username, 'user');
+                updateMobileAuthUI(userInfo.username, 'user');
                 loginModal.classList.remove('active');
                 overlay.classList.remove('active');
-                alert('注册成功！已自动登录。');
+                alert('注册成功！（本地模式）已自动登录。');
             });
             
             // 更新移动端登录状态UI
@@ -2610,12 +2958,59 @@
                     mobileMyCoursesLink.style.display = 'block';
                     mobileAdminPanelLink.style.display = 'none';
                 }
-                document.getElementById('mobileLogoutBtn').addEventListener('click', function() {
+                document.getElementById('mobileLogoutBtn').addEventListener('click', async function() {
+                    try { if (window.supabaseClient) await supabaseClient.auth.signOut(); } catch(e) { console.warn('Supabase 退出失败，忽略：', e); }
                     localStorage.removeItem('taixuanUser');
                     location.reload();
                 });
             }
         });
+    </script>
+    <!-- 接入 Supabase（使用全局配置 supabase.config.js）并自愈 members -->
+    <script src="./supabase.config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+    <script>
+      try {
+        if (window.supabase && window.__SUPABASE__ && window.__SUPABASE__.url && window.__SUPABASE__.anon) {
+          window.supabaseClient = window.supabase.createClient(window.__SUPABASE__.url, window.__SUPABASE__.anon);
+
+          // 自愈：保证 members 存在当前用户记录
+          window.ensureMemberRow = async function(userId, email){
+            try {
+              const { data: existing } = await supabaseClient
+                .from('members').select('user_id').eq('user_id', userId).limit(1).maybeSingle();
+              if (!existing) {
+                await supabaseClient.from('members').insert({ user_id: userId, email: email || '', role: 'user' });
+              }
+            } catch(e) {}
+          };
+
+          // 会话自检
+          supabaseClient.auth.getSession().then(({ data }) => {
+            const u = data.session?.user;
+            if (u && typeof window.ensureMemberRow === 'function') window.ensureMemberRow(u.id, u.email || '');
+          });
+
+          // 简版审批检测（移动端使用）
+          window.isApprovedCurrentUserAsyncMobile = async function(){
+            try {
+              if (!window.supabaseClient) return true;
+              const { data } = await supabaseClient.auth.getSession();
+              const u = data.session?.user; if (!u) return false;
+              const { data: row } = await supabaseClient.from('members').select('status').eq('user_id', u.id).limit(1).maybeSingle();
+              const st = row?.status;
+              if (st === 'active') return true;
+              if (!st) {
+                const { data: row2 } = await supabaseClient.from('members').select('status').eq('email', u.email).limit(1).maybeSingle();
+                return row2?.status === 'active';
+              }
+              return false;
+            } catch(e) { return false; }
+          };
+        } else {
+          console.warn('Supabase 未初始化：请在 supabase.config.js 填写项目配置');
+        }
+      } catch(e) { console.warn('Supabase 初始化失败或未配置：', e); }
     </script>
     <script>
       if ('serviceWorker' in navigator) {

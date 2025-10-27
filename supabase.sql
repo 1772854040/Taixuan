@@ -218,4 +218,53 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 -- 10) 注意事项
 -- - 若你计划使用 JWT 自定义角色而非 members 表，请改用基于 claims 的策略：
 --   current_setting('request.jwt.claims', true)::jsonb ->> 'role' = 'admin'
+
+-- 11) VIP 激活码表：vip_codes
+create table if not exists public.vip_codes (
+  code text primary key,
+  plan text check (plan in ('monthly','yearly')),
+  status text not null check (status in ('unused','used')) default 'unused',
+  issuedTo text,
+  usedBy text,
+  createdAt bigint,
+  usedAt bigint
+);
+
+create index if not exists vip_codes_status_idx on public.vip_codes(status);
+create index if not exists vip_codes_created_idx on public.vip_codes(createdAt);
+
+alter table public.vip_codes enable row level security;
+alter table public.vip_codes force row level security;
+
+-- RLS 策略：仅管理员可管理/查看；普通登录用户允许更新使用状态（用于自助激活）
+DO $$ BEGIN
+  CREATE POLICY vip_codes_select_admin ON public.vip_codes
+    FOR SELECT TO authenticated
+    USING (
+      EXISTS(SELECT 1 FROM public.members me WHERE me.user_id = auth.uid() AND me.role = 'admin')
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE POLICY vip_codes_insert_admin ON public.vip_codes
+    FOR INSERT TO authenticated
+    WITH CHECK (
+      EXISTS(SELECT 1 FROM public.members me WHERE me.user_id = auth.uid() AND me.role = 'admin')
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE POLICY vip_codes_delete_admin ON public.vip_codes
+    FOR DELETE TO authenticated
+    USING (
+      EXISTS(SELECT 1 FROM public.members me WHERE me.user_id = auth.uid() AND me.role = 'admin')
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE POLICY vip_codes_update_authenticated ON public.vip_codes
+    FOR UPDATE TO authenticated
+    USING (auth.uid() IS NOT NULL)
+    WITH CHECK (auth.uid() IS NOT NULL);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 -- - 本脚本选择 members 表以获得更可控的角色管理与复用性

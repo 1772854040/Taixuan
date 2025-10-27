@@ -4,7 +4,14 @@
 -- 1) Schema: add email and status to members, with constraints
 alter table public.members
   add column if not exists email text,
-  add column if not exists status text not null default 'pending' check (status in ('pending','active','revoked','blocked'));
+  add column if not exists status text not null default 'pending' check (status in ('pending','active','revoked','blocked')),
+  add column if not exists vip_plan text check (vip_plan in ('monthly','yearly')),
+  add column if not exists vip_expire_at bigint;
+
+-- Unique constraint on user_id (ensure 1:1 mapping to auth.users)
+do $$ begin
+  alter table public.members add constraint members_user_id_unique unique (user_id);
+exception when duplicate_object then null; end $$;
 
 -- Unique constraint on email (optional but recommended)
 do $$ begin
@@ -39,7 +46,31 @@ exception when duplicate_object then null; end $$;
 
 -- Note: admin policies from supabase.sql remain, enabling full management by admins.
 
--- 4) Optional: backfill existing users (run manually if needed)
--- insert into public.members (user_id, email, role, status)
--- select id as user_id, email, 'user' as role, 'pending' as status from auth.users
--- on conflict (user_id) do update set email = excluded.email;
+-- 4) Trigger: auto-create members row when a new auth.users record is inserted
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.members(user_id, email, role, status)
+  values (new.id, new.email, 'user', 'pending')
+  on conflict (user_id) do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
+
+-- 5) Backfill existing users missing a members row (one-time fix)
+insert into public.members(user_id, email, role, status)
+select u.id, u.email, 'user', 'pending'
+from auth.users u
+where not exists (
+  select 1 from public.members m where m.user_id = u.id
+)
+on conflict (user_id) do nothing;
