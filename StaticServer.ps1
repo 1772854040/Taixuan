@@ -24,7 +24,7 @@ $cacheControls = @{
   ".html" = "no-cache"
   ".json" = "no-cache"
   ".css"  = "public, max-age=604800" # 7天
-  ".js"   = "public, max-age=604800"
+  ".js"   = "no-cache"
   ".png"  = "public, max-age=604800"
   ".jpg"  = "public, max-age=604800"
   ".jpeg" = "public, max-age=604800"
