@@ -4961,6 +4961,39 @@
                 return !!(m && m.status === MEMBER_STATUS.active);
             } catch(e) { return false; }
         }
+        // Supabase: 异步检查当前用户是否在白名单且已激活
+        async function isApprovedCurrentUserAsync() {
+            try {
+                if (!window.supabaseClient) return isApprovedCurrentUser();
+                const { data: sessData } = await supabaseClient.auth.getSession();
+                const supaUser = sessData?.session?.user;
+                if (!supaUser) return isApprovedCurrentUser();
+                const userId = supaUser.id;
+                const email = supaUser.email;
+                // 优先使用 user_id，避免 username 字段缺失导致查询失败
+                const { data, error } = await supabaseClient
+                    .from('members')
+                    .select('status')
+                    .eq('user_id', userId)
+                    .limit(1)
+                    .maybeSingle();
+                if (error || !data) {
+                    // 回退：如缺少 user_id 映射或历史数据未填充，尝试用 email 匹配
+                    if (email) {
+                        const { data: byEmail, error: err2 } = await supabaseClient
+                            .from('members')
+                            .select('status')
+                            .eq('email', email)
+                            .limit(1)
+                            .maybeSingle();
+                        if (err2) return isApprovedCurrentUser();
+                        return byEmail?.status === MEMBER_STATUS.active;
+                    }
+                    return isApprovedCurrentUser();
+                }
+                return data?.status === MEMBER_STATUS.active;
+            } catch(e) { return isApprovedCurrentUser(); }
+        }
         function getInviteCodes() {
             try { return JSON.parse(localStorage.getItem('taixuanInviteCodes')) || []; } catch(e) { return []; }
         }
@@ -4981,33 +5014,41 @@
             } catch(e) { return false; }
         }
         function approveMember(email) {
+            // 改为支持 Supabase 更新
             if (!requireAdmin()) { alert('需要管理员权限'); return false; }
-            const members = getMembers();
-            const m = members.find(x => x.email === email);
-            if (!m) { alert('未找到该会员'); return false; }
-            m.status = MEMBER_STATUS.active;
-            saveMembers(members);
-            
-            // 审批通过后，自动在学员列表创建对应记录（如不存在）
-            try {
-                const existsStudent = students.some(s => s.email === m.email);
-                if (!existsStudent) {
-                    const newId = students.length > 0 ? Math.max(...students.map(s => s.id || 0)) + 1 : 1;
-                    students.push({
-                        id: newId,
-                        name: m.username || '',
-                        email: m.email || '',
-                        group: '未分组',
-                        joinDate: new Date().toLocaleDateString(),
-                        progress: 0,
-                        studyTime: 0,
-                        courses: []
-                    });
-                    localStorage.setItem('taixuanStudents', JSON.stringify(students));
-                    if (typeof renderStudentsTable === 'function') renderStudentsTable();
-                    if (typeof renderGroupsTable === 'function') renderGroupsTable();
+            (async () => {
+                if (window.supabaseClient) {
+                    const { error } = await supabaseClient.from('members').update({ status: MEMBER_STATUS.active }).eq('email', email);
+                    if (error) { alert('Supabase 审批失败，请稍后重试'); return; }
                 }
-            } catch(e) {}
+                const members = getMembers();
+                const m = members.find(x => x.email === email);
+                if (!m) { alert('未找到该会员'); return false; }
+                m.status = MEMBER_STATUS.active;
+                saveMembers(members);
+                
+                // 审批通过后，自动在学员列表创建对应记录（如不存在）
+                try {
+                    const existsStudent = students.some(s => s.email === m.email);
+                    if (!existsStudent) {
+                        const newId = students.length > 0 ? Math.max(...students.map(s => s.id || 0)) + 1 : 1;
+                        students.push({
+                            id: newId,
+                            name: m.username || '',
+                            email: m.email || '',
+                            group: '未分组',
+                            joinDate: new Date().toLocaleDateString(),
+                            progress: 0,
+                            studyTime: 0,
+                            courses: []
+                        });
+                        localStorage.setItem('taixuanStudents', JSON.stringify(students));
+                        if (typeof renderStudentsTable === 'function') renderStudentsTable();
+                        if (typeof renderGroupsTable === 'function') renderGroupsTable();
+                    }
+                } catch(e) {}
+            })();
+            return true;
             
             alert('已批准该会员');
             return true;
@@ -5347,10 +5388,52 @@
                     if (mailNavItem) mailNavItem.style.display = (isLoggedIn && !isAdmin) ? 'block' : 'none';
                 } catch(e) {}
             }
-            function updateMailIndicator() {
-                // 红点提示已取消，保留函数占位以兼容既有调用
+            async function updateMailIndicator() {
                 try {
-                    // no-op
+                    const mailNavItem = document.getElementById('mailNavItem');
+                    const mailToggle = document.getElementById('mailToggle');
+                    if (!mailNavItem || !mailToggle) return;
+                    let unread = 0;
+                    if (window.supabaseClient) {
+                        const { data: sessData } = await supabaseClient.auth.getSession();
+                        const supaUser = sessData?.session?.user;
+                        // 未登录或管理员不显示红点
+                        const isAdmin = !!(supaUser?.user_metadata?.role === 'admin');
+                        if (supaUser && !isAdmin) {
+                            const { data, error } = await supabaseClient
+                                .from('messages')
+                                .select('id, reply, reply_read')
+                                .eq('user_id', supaUser.id)
+                                .not('reply', 'is', null)
+                                .eq('reply_read', false);
+                            if (!error && Array.isArray(data)) {
+                                unread = data.filter(m => (m.reply && String(m.reply).trim() !== '' && !m.reply_read)).length;
+                            }
+                        }
+                    } else {
+                        const currentUser = JSON.parse(localStorage.getItem('taixuanUser')) || {};
+                        const uname = safeText(currentUser.username || '');
+                        const isAdmin = currentUser.role === 'admin';
+                        if (uname && !isAdmin) {
+                            const messages = JSON.parse(localStorage.getItem('taixuanMessages')) || [];
+                            unread = messages.filter(m => (m.user === uname && m.reply && String(m.reply).trim() !== '' && !m.replyRead)).length;
+                        }
+                    }
+                    // 更新或创建红点/数字徽章
+                    let badge = document.getElementById('mailUnreadBadge');
+                    if (!badge) {
+                        badge = document.createElement('span');
+                        badge.id = 'mailUnreadBadge';
+                        badge.style.cssText = 'position:absolute;top:-2px;right:-6px;background:#e02424;color:#fff;border-radius:10px;padding:0 6px;font-size:12px;line-height:18px;height:18px;min-width:18px;text-align:center;display:none;';
+                        mailNavItem.appendChild(badge);
+                    }
+                    if (unread > 0) {
+                        badge.textContent = String(unread);
+                        badge.style.display = 'inline-block';
+                    } else {
+                        badge.textContent = '';
+                        badge.style.display = 'none';
+                    }
                 } catch(e) {}
             }
             if (mailToggle) {
@@ -5375,7 +5458,7 @@
             
             // 绑定购买按钮事件（课程弹优惠，其它保持联系导师）
             document.querySelectorAll('.purchase-btn').forEach(button => {
-                button.addEventListener('click', function() {
+                button.addEventListener('click', async function() {
                     const productName = this.getAttribute('data-product') || '';
                     const course = courses.find(c => c.name === productName);
                     const cuRaw = localStorage.getItem('taixuanUser');
@@ -5420,8 +5503,9 @@
                             // 设置目标赞助类型（用于限制激活码类型）
                             const desiredPlan = (/月度/.test(productName) ? 'monthly' : (/年度/.test(productName) ? 'yearly' : ''));
                             if (desiredPlan) { localStorage.setItem('vipDesiredPlan', desiredPlan); } else { localStorage.removeItem('vipDesiredPlan'); }
-                            // 白名单审批通过后才允许开通会员/赞助
-                            if (!isApprovedCurrentUser()) {
+                            // 白名单审批通过后才允许开通会员/赞助（Supabase检查）
+                            const approved = await isApprovedCurrentUserAsync();
+                            if (!approved) {
                                 alert('您的注册信息已提交，待管理员审批通过后方可开通会员/赞助。');
                                 return;
                             }
@@ -5439,8 +5523,8 @@
                 });
             });
             
-            // 绑定留言表单提交事件（需登录，保存到管理员后台）
-            document.getElementById('messageForm').addEventListener('submit', function(e) {
+            // 绑定留言表单提交事件（接入 Supabase，需登录，保存到管理员后台）
+            document.getElementById('messageForm').addEventListener('submit', async function(e) {
                 e.preventDefault();
 
                 const currentUser = JSON.parse(localStorage.getItem('taixuanUser'));
@@ -5452,7 +5536,6 @@
                 }
 
                 const msgVal = document.getElementById('message').value.trim();
-
                 if (!msgVal) {
                     alert('请填写留言内容');
                     return;
@@ -5461,39 +5544,73 @@
                 const name = safeText(currentUser.username || '');
                 const content = safeText(msgVal);
 
-                const messages = JSON.parse(localStorage.getItem('taixuanMessages')) || [];
-
-                // 学员用户限制：每天一次留言，且最多100字（管理员不受限）
-                if (!currentUser.role || currentUser.role !== 'admin') {
-                    if ((msgVal || '').length > 100) {
-                        alert('留言内容最多100字');
+                if (window.supabaseClient) {
+                    const { data: sessData } = await supabaseClient.auth.getSession();
+                    const supaUser = sessData?.session?.user;
+                    if (!supaUser) {
+                        alert('登录会话异常，请重新登录后再试');
+                        const lm = document.getElementById('loginModal');
+                        if (lm) lm.style.display = 'flex';
                         return;
                     }
-                    const todayStr = new Date().toDateString();
-                    const uname = safeText(currentUser.username || '');
-                    const hasToday = messages.some(m => (m.user === uname) && (new Date(m.time).toDateString() === todayStr));
-                    if (hasToday) {
-                        alert('您今天已留言过，请明天再来。');
+                    // 学员用户限制：每天一次留言，且最多100字（管理员不受限）
+                    const isAdmin = (currentUser.role === 'admin') || (supaUser?.user_metadata?.role === 'admin');
+                    if (!isAdmin) {
+                        if ((msgVal || '').length > 100) {
+                            alert('留言内容最多100字');
+                            return;
+                        }
+                        const start = new Date(); start.setHours(0,0,0,0);
+                        const end = new Date(); end.setHours(23,59,59,999);
+                        const { data: todayMsgs, error: cntErr } = await supabaseClient
+                            .from('messages')
+                            .select('id,created_at')
+                            .eq('user_id', supaUser.id)
+                            .gte('created_at', start.toISOString())
+                            .lte('created_at', end.toISOString());
+                        if (!cntErr && Array.isArray(todayMsgs) && todayMsgs.length > 0) {
+                            alert('您今天已留言过，请明天再来。');
+                            return;
+                        }
+                    }
+                    const { error: insErr } = await supabaseClient.from('messages').insert({
+                        user_id: supaUser.id,
+                        username: safeText(currentUser.username || ''),
+                        name,
+                        content,
+                        status: 'new',
+                        created_at: new Date().toISOString()
+                    });
+                    if (insErr) {
+                        alert('留言保存失败，请稍后重试');
                         return;
                     }
+                    try { if (typeof updateMailIndicator === 'function') updateMailIndicator(); } catch(e) {}
+                    document.getElementById('messageForm').style.display = 'none';
+                    document.getElementById('thankYouMessage').style.display = 'block';
+                } else {
+                    // 本地存储回退
+                    const messages = JSON.parse(localStorage.getItem('taixuanMessages')) || [];
+                    if (!currentUser.role || currentUser.role !== 'admin') {
+                        if ((msgVal || '').length > 100) {
+                            alert('留言内容最多100字');
+                            return;
+                        }
+                        const todayStr = new Date().toDateString();
+                        const uname = safeText(currentUser.username || '');
+                        const hasToday = messages.some(m => (m.user === uname) && (new Date(m.time).toDateString() === todayStr));
+                        if (hasToday) {
+                            alert('您今天已留言过，请明天再来。');
+                            return;
+                        }
+                    }
+                    const nextId = messages.length ? Math.max(...messages.map(m => m.id || 0)) + 1 : 1;
+                    messages.push({ id: nextId, name, content, user: safeText(currentUser.username || ''), time: new Date().toISOString(), status: 'new' });
+                    localStorage.setItem('taixuanMessages', JSON.stringify(messages));
+                    try { if (typeof updateMailIndicator === 'function') updateMailIndicator(); } catch(e) {}
+                    document.getElementById('messageForm').style.display = 'none';
+                    document.getElementById('thankYouMessage').style.display = 'block';
                 }
-
-                const nextId = messages.length ? Math.max(...messages.map(m => m.id || 0)) + 1 : 1;
-
-                messages.push({
-                    id: nextId,
-                    name,
-                    content,
-                    user: safeText(currentUser.username || ''),
-                    time: new Date().toISOString(),
-                    status: 'new'
-                });
-
-                localStorage.setItem('taixuanMessages', JSON.stringify(messages));
-                try { if (typeof updateMailIndicator === 'function') updateMailIndicator(); } catch(e) {}
-
-                document.getElementById('messageForm').style.display = 'none';
-                document.getElementById('thankYouMessage').style.display = 'block';
             });
         });
 
@@ -5759,25 +5876,27 @@
             document.getElementById('ungroupedStudents').textContent = ungroupedStudents;
         }
 
-        // 新增：渲染留言表格与删除、搜索
-        function renderMessagesTable() {
-            const messages = JSON.parse(localStorage.getItem('taixuanMessages')) || [];
+        // 新增：渲染留言表格与删除、搜索（优先使用 Supabase）
+        async function renderMessagesTable() {
             const searchInput = document.getElementById('messagesSearch');
             const kw = (searchInput && searchInput.value || '').toLowerCase();
-
+            const tbody = document.getElementById('messagesTableBody');
+            let messages = [];
+            if (window.supabaseClient) {
+                const { data, error } = await supabaseClient
+                    .from('messages')
+                    .select('id,name,content,created_at')
+                    .order('created_at', { ascending: false });
+                messages = error ? [] : (data || []).map(m => ({ id: m.id, name: m.name, content: m.content, time: m.created_at }));
+            } else {
+                messages = JSON.parse(localStorage.getItem('taixuanMessages')) || [];
+            }
             const filtered = messages.filter(m => {
                 const name = (m.name || '').toLowerCase();
                 const content = (m.content || '').toLowerCase();
                 return !kw || name.includes(kw) || content.includes(kw);
             });
-
-            const tbody = document.getElementById('messagesTableBody');
-            const safeMsgs = filtered.map(m => ({
-                ...m,
-                name: safeText(m.name || ''),
-                content: safeText(m.content || '')
-            }));
-
+            const safeMsgs = filtered.map(m => ({ ...m, name: safeText(m.name || ''), content: safeText(m.content || '') }));
             tbody.innerHTML = safeMsgs.map(m => `
                 <tr>
                     <td>${m.name}</td>
@@ -5795,15 +5914,23 @@
 
         document.getElementById('messagesSearch')?.addEventListener('input', renderMessagesTable);
 
-        function deleteMessage(id) {
-                const messages = JSON.parse(localStorage.getItem('taixuanMessages')) || [];
-                const next = messages.filter(m => m.id !== id);
-                localStorage.setItem('taixuanMessages', JSON.stringify(next));
-                renderMessagesTable();
-                try { if (typeof updateMailIndicator === 'function') updateMailIndicator(); } catch(e) {}
+        async function deleteMessage(id) {
+                if (window.supabaseClient) {
+                    if (!requireAdmin()) { alert('需要管理员权限'); return; }
+                    const { error } = await supabaseClient.from('messages').delete().eq('id', id);
+                    if (error) { alert('删除失败，请稍后重试'); return; }
+                    await renderMessagesTable();
+                    try { if (typeof updateMailIndicator === 'function') updateMailIndicator(); } catch(e) {}
+                } else {
+                    const messages = JSON.parse(localStorage.getItem('taixuanMessages')) || [];
+                    const next = messages.filter(m => m.id !== id);
+                    localStorage.setItem('taixuanMessages', JSON.stringify(next));
+                    renderMessagesTable();
+                    try { if (typeof updateMailIndicator === 'function') updateMailIndicator(); } catch(e) {}
+                }
             }
 
-            function publishAnnouncement() {
+            async function publishAnnouncement() {
                 const titleEl = document.getElementById('announceTitleInput');
                 const contentEl = document.getElementById('announceContentInput');
                 if (!titleEl || !contentEl) return;
@@ -5813,6 +5940,24 @@
                     alert('请填写公告标题和内容');
                     return;
                 }
+                if (window.supabaseClient) {
+                    if (!requireAdmin()) { alert('需要管理员权限'); return; }
+                    const { data: sessData } = await supabaseClient.auth.getSession();
+                    const supaUser = sessData?.session?.user;
+                    if (!supaUser) { alert('登录会话异常，请重新登录'); return; }
+                    const { error } = await supabaseClient
+                        .from('announcements')
+                        .insert({ title, content, created_at: new Date().toISOString(), author: 'admin' });
+                    if (error) { alert('公告发布失败，请稍后重试'); return; }
+                    titleEl.value = '';
+                    contentEl.value = '';
+                    alert('公告已发布');
+                    try { if (typeof updateMailIndicator === 'function') updateMailIndicator(); } catch(e) {}
+                    await renderMail();
+                    await renderAnnouncementsTable();
+                    return;
+                }
+                // 本地回退
                 const anns = JSON.parse(localStorage.getItem('taixuanAnnouncements')) || [];
                 const nextId = anns.length ? Math.max(...anns.map(a => a.id || 0)) + 1 : 1;
                 const ann = { id: nextId, title, content, time: new Date().toISOString() };
@@ -5826,10 +5971,43 @@
             }
 
             // 公告管理：渲染、编辑、删除
-            function renderAnnouncementsTable() {
-                const anns = JSON.parse(localStorage.getItem('taixuanAnnouncements')) || [];
+            async function renderAnnouncementsTable() {
                 const tbody = document.getElementById('announcementsTableBody');
                 if (!tbody) return;
+                // 优先使用 Supabase
+                if (window.supabaseClient) {
+                    try {
+                        if (!requireAdmin()) throw new Error('need-admin');
+                        const { data, error } = await supabaseClient
+                            .from('announcements')
+                            .select('id, title, content, created_at')
+                            .order('created_at', { ascending: false });
+                        if (error) throw error;
+                        const safeAnns = (Array.isArray(data) ? data : []).map(a => ({
+                            id: a.id,
+                            title: safeText(a.title || ''),
+                            content: safeText(a.content || ''),
+                            time: a.created_at
+                        }));
+                        tbody.innerHTML = safeAnns.map(a => `
+                            <tr>
+                                <td>${a.title}</td>
+                                <td>${a.content}</td>
+                                <td>${a.time ? new Date(a.time).toLocaleString() : ''}</td>
+                                <td>
+                                    <div class="action-buttons">
+                                        <button class="edit-btn" onclick="editAnnouncement(${a.id})">编辑</button>
+                                        <button class="delete-btn" onclick="deleteAnnouncement(${a.id})">删除</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        `).join('');
+                        return;
+                    } catch(err) {
+                        // 回退到本地
+                    }
+                }
+                const anns = JSON.parse(localStorage.getItem('taixuanAnnouncements')) || [];
                 const safeAnns = anns.map(a => ({
                     ...a,
                     title: safeText(a.title || ''),
@@ -5850,14 +6028,10 @@
                 `).join('');
             }
 
-            function editAnnouncement(id) {
-                const anns = JSON.parse(localStorage.getItem('taixuanAnnouncements')) || [];
-                const idx = anns.findIndex(a => a.id === id);
-                if (idx === -1) return;
-                const current = anns[idx];
-                const newTitle = prompt('修改公告标题：', current.title || '');
+            async function editAnnouncement(id) {
+                const newTitle = prompt('修改公告标题：');
                 if (newTitle === null) return;
-                const newContent = prompt('修改公告内容：', current.content || '');
+                const newContent = prompt('修改公告内容：');
                 if (newContent === null) return;
                 const sTitle = safeText(newTitle.trim());
                 const sContent = safeText(newContent.trim());
@@ -5865,6 +6039,28 @@
                     alert('标题或内容不能为空');
                     return;
                 }
+                if (window.supabaseClient) {
+                    if (!requireAdmin()) { alert('需要管理员权限'); return; }
+                    const { error } = await supabaseClient
+                        .from('announcements')
+                        .update({ title: sTitle, content: sContent, created_at: new Date().toISOString() })
+                        .eq('id', id);
+                    if (error) { alert('公告更新失败，请稍后重试'); return; }
+                    await renderAnnouncementsTable();
+                    await renderMail();
+                    try {
+                        const mailModal = document.getElementById('mailModal');
+                        if (mailModal && mailModal.style.display === 'flex') {
+                            await renderMailAnnouncementsModal();
+                        }
+                    } catch(e) {}
+                    alert('公告已更新');
+                    return;
+                }
+                // 本地回退
+                const anns = JSON.parse(localStorage.getItem('taixuanAnnouncements')) || [];
+                const idx = anns.findIndex(a => a.id === id);
+                if (idx === -1) return;
                 anns[idx].title = sTitle;
                 anns[idx].content = sContent;
                 anns[idx].time = new Date().toISOString();
@@ -5880,8 +6076,23 @@
                 alert('公告已更新');
             }
 
-            function deleteAnnouncement(id) {
+            async function deleteAnnouncement(id) {
                 if (!confirm('确认删除该公告？')) return;
+                if (window.supabaseClient) {
+                    if (!requireAdmin()) { alert('需要管理员权限'); return; }
+                    const { error } = await supabaseClient.from('announcements').delete().eq('id', id);
+                    if (error) { alert('公告删除失败，请稍后重试'); return; }
+                    await renderAnnouncementsTable();
+                    await renderMail();
+                    try {
+                        const mailModal = document.getElementById('mailModal');
+                        if (mailModal && mailModal.style.display === 'flex') {
+                            await renderMailAnnouncementsModal();
+                        }
+                    } catch(e) {}
+                    alert('公告已删除');
+                    return;
+                }
                 const anns = JSON.parse(localStorage.getItem('taixuanAnnouncements')) || [];
                 const next = anns.filter(a => a.id !== id);
                 localStorage.setItem('taixuanAnnouncements', JSON.stringify(next));
@@ -5896,7 +6107,7 @@
                 alert('公告已删除');
             }
 
-            function replyMessage(id) {
+            async function replyMessage(id) {
                  const reply = prompt('请输入回复内容：');
                  if (reply === null) return;
                  const safeReply = safeText(reply.trim());
@@ -5904,32 +6115,74 @@
                      alert('回复内容不能为空');
                      return;
                  }
-                 const messages = JSON.parse(localStorage.getItem('taixuanMessages')) || [];
-                 const idx = messages.findIndex(m => m.id === id);
-                 if (idx === -1) return;
-                 messages[idx].reply = safeReply;
-                 messages[idx].replyTime = new Date().toISOString();
-                 messages[idx].replyBy = 'admin';
-                 localStorage.setItem('taixuanMessages', JSON.stringify(messages));
-                 renderMessagesTable();
-                 renderMail();
-                 try { if (typeof updateMailIndicator === 'function') updateMailIndicator(); } catch(e) {}
-                 // 若弹窗已打开，自动刷新
-                 try {
-                     const mailModal = document.getElementById('mailModal');
-                     if (mailModal && mailModal.style.display === 'flex') {
-                         renderMailAnnouncementsModal();
-                         renderMailRepliesModal();
-                     }
-                 } catch(e) {}
-                 alert('回复已保存');
+                 if (window.supabaseClient) {
+                     if (!requireAdmin()) { alert('需要管理员权限'); return; }
+                     const { error } = await supabaseClient
+                         .from('messages')
+                         .update({ reply: safeReply, reply_time: new Date().toISOString(), reply_by: 'admin' })
+                         .eq('id', id);
+                     if (error) { alert('回复保存失败，请稍后重试'); return; }
+                     await renderMessagesTable();
+                     renderMail();
+                     try { if (typeof updateMailIndicator === 'function') updateMailIndicator(); } catch(e) {}
+                     try {
+                         const mailModal = document.getElementById('mailModal');
+                         if (mailModal && mailModal.style.display === 'flex') {
+                             renderMailAnnouncementsModal();
+                             renderMailRepliesModal();
+                         }
+                     } catch(e) {}
+                     alert('回复已保存');
+                 } else {
+                     const messages = JSON.parse(localStorage.getItem('taixuanMessages')) || [];
+                     const idx = messages.findIndex(m => m.id === id);
+                     if (idx === -1) return;
+                     messages[idx].reply = safeReply;
+                     messages[idx].replyTime = new Date().toISOString();
+                     messages[idx].replyBy = 'admin';
+                     localStorage.setItem('taixuanMessages', JSON.stringify(messages));
+                     renderMessagesTable();
+                     renderMail();
+                     try { if (typeof updateMailIndicator === 'function') updateMailIndicator(); } catch(e) {}
+                     try {
+                         const mailModal = document.getElementById('mailModal');
+                         if (mailModal && mailModal.style.display === 'flex') {
+                             renderMailAnnouncementsModal();
+                             renderMailRepliesModal();
+                         }
+                     } catch(e) {}
+                     alert('回复已保存');
+                 }
              }
 
         // 弹窗：渲染管理员公告
-        function renderMailAnnouncementsModal() {
-                const announcements = JSON.parse(localStorage.getItem('taixuanAnnouncements')) || [];
+        async function renderMailAnnouncementsModal() {
                 const container = document.getElementById('mailAnnouncementsModalList');
                 if (!container) return;
+                // 优先使用 Supabase
+                if (window.supabaseClient) {
+                    try {
+                        const { data, error } = await supabaseClient
+                            .from('announcements')
+                            .select('id, title, content, created_at')
+                            .order('created_at', { ascending: false });
+                        if (error) throw error;
+                        const anns = Array.isArray(data) ? data : [];
+                        container.innerHTML = anns.length === 0
+                            ? '<div style="color:#888;">暂无公告</div>'
+                            : anns.map(a => `
+                                <div style="padding:12px 16px;border:1px solid #eee;border-radius:8px;margin-bottom:10px;">
+                                    <div style="font-weight:600;">${safeText(a.title || '公告')}</div>
+                                    <div style="color:#666;margin-top:6px;">${safeText(a.content || '')}</div>
+                                    <div style="color:#999;margin-top:6px;font-size:12px;">${a.created_at ? new Date(a.created_at).toLocaleString() : ''}</div>
+                                </div>
+                            `).join('');
+                        return;
+                    } catch(err) {
+                        // 回退到本地
+                    }
+                }
+                const announcements = JSON.parse(localStorage.getItem('taixuanAnnouncements')) || [];
                 container.innerHTML = announcements.length === 0
                     ? '<div style="color:#888;">暂无公告</div>'
                     : announcements.map(a => `
@@ -5941,13 +6194,54 @@
                     `).join('');
             }
 
-            function renderMailRepliesModal() {
+            async function renderMailRepliesModal() {
+                const repContainer = document.getElementById('mailRepliesModalList');
+                if (!repContainer) return;
+                // 优先使用 Supabase
+                if (window.supabaseClient) {
+                    try {
+                        const { data: sessData } = await supabaseClient.auth.getSession();
+                        const supaUser = sessData?.session?.user;
+                        if (!supaUser) {
+                            // 未登录则回退到本地存储
+                            throw new Error('no-session');
+                        }
+                        const { data: mineMsgs, error } = await supabaseClient
+                            .from('messages')
+                            .select('id, content, created_at, reply, reply_time, reply_by, reply_read')
+                            .eq('user_id', supaUser.id)
+                            .order('created_at', { ascending: false });
+                        if (error) throw error;
+                        const list = Array.isArray(mineMsgs) ? mineMsgs : [];
+                        repContainer.innerHTML = list.length === 0
+                            ? '<div style="color:#888;">暂无您的留言记录或尚未登录</div>'
+                            : list.map(m => `
+                                <div style="padding:12px 16px;border:1px solid #eee;border-radius:8px;margin-bottom:10px;">
+                                    <div style="font-weight:600;">我的留言</div>
+                                    <div style="color:#333;margin-top:6px;">${safeText(m.content || '')}</div>
+                                    <div style="color:#999;margin-top:6px;font-size:12px;">${new Date(m.created_at).toLocaleString()}</div>
+                                    <div style="margin-top:10px;border-top:1px dashed #eee;padding-top:8px;">
+                                        <div style="font-weight:600;">管理员回复</div>
+                                        <div style="color:#444;margin-top:6px;">${safeText(m.reply || '尚未回复')}</div>
+                                    </div>
+                                </div>
+                            `).join('');
+                        // 标记已读：当前用户的有回复且未读的留言（Supabase）
+                        const unreadIds = list.filter(m => (m.reply && String(m.reply).trim() !== '' && !m.reply_read)).map(m => m.id);
+                        if (unreadIds.length > 0) {
+                            await supabaseClient.from('messages').update({ reply_read: true }).in('id', unreadIds);
+                            try { if (typeof updateMailIndicator === 'function') updateMailIndicator(); } catch(e) {}
+                        }
+                        return;
+                    } catch(err) {
+                        // 失败则回退到本地存储
+                    }
+                }
+                // 本地回退逻辑
                 const currentUser = JSON.parse(localStorage.getItem('taixuanUser')) || {};
                 const messages = JSON.parse(localStorage.getItem('taixuanMessages')) || [];
                 const uname = safeText(currentUser.username || '');
                 const mine = uname ? messages.filter(m => m.user === uname) : [];
-                const repContainer = document.getElementById('mailRepliesModalList');
-                if (!repContainer) return;
                 repContainer.innerHTML = mine.length === 0
                     ? '<div style="color:#888;">暂无您的留言记录或尚未登录</div>'
                     : mine
@@ -5963,7 +6257,6 @@
                                 </div>
                             </div>
                         `).join('');
-                // 标记已读：当前用户的有回复且未读的留言
                 if (uname) {
                     let changed = false;
                     messages.forEach(m => {
@@ -5980,7 +6273,7 @@
             }
 
         // 新增：渲染“邮件中心”内容
-        function renderMail() {
+        async function renderMail() {
             const announcements = JSON.parse(localStorage.getItem('taixuanAnnouncements')) || [];
             const annBody = document.getElementById('mailAnnouncementsList');
             if (annBody) {
@@ -5995,28 +6288,59 @@
                     `).join('');
             }
 
-            const currentUser = JSON.parse(localStorage.getItem('taixuanUser')) || {};
-            const messages = JSON.parse(localStorage.getItem('taixuanMessages')) || [];
-            const uname = safeText(currentUser.username || '');
-            const mine = uname ? messages.filter(m => m.user === uname) : [];
             const repBody = document.getElementById('mailRepliesList');
-            if (repBody) {
-                repBody.innerHTML = mine.length === 0
-                    ? '<div style="color:#888;">暂无您的留言记录或尚未登录</div>'
-                    : mine
-                        .sort((a, b) => new Date(b.time) - new Date(a.time))
-                        .map(m => `
+            if (!repBody) return;
+            // 优先使用 Supabase
+            if (window.supabaseClient) {
+                try {
+                    const { data: sessData } = await supabaseClient.auth.getSession();
+                    const supaUser = sessData?.session?.user;
+                    if (!supaUser) throw new Error('no-session');
+                    const { data: mineMsgs, error } = await supabaseClient
+                        .from('messages')
+                        .select('id, content, created_at, reply, reply_time, reply_by')
+                        .eq('user_id', supaUser.id)
+                        .order('created_at', { ascending: false });
+                    if (error) throw error;
+                    const list = Array.isArray(mineMsgs) ? mineMsgs : [];
+                    repBody.innerHTML = list.length === 0
+                        ? '<div style="color:#888;">暂无您的留言记录或尚未登录</div>'
+                        : list.map(m => `
                             <div style="padding:12px 16px;border:1px solid #eee;border-radius:8px;margin-bottom:10px;">
                                 <div style="font-weight:600;">我的留言</div>
                                 <div style="color:#333;margin-top:6px;">${safeText(m.content || '')}</div>
-                                <div style="color:#999;margin-top:6px;font-size:12px;">${new Date(m.time).toLocaleString()}</div>
+                                <div style="color:#999;margin-top:6px;font-size:12px;">${new Date(m.created_at).toLocaleString()}</div>
                                 <div style="margin-top:10px;border-top:1px dashed #eee;padding-top:8px;">
                                     <div style="font-weight:600;">管理员回复</div>
                                     <div style="color:#444;margin-top:6px;">${safeText(m.reply || '尚未回复')}</div>
                                 </div>
                             </div>
                         `).join('');
+                    return;
+                } catch(err) {
+                    // 失败则回退到本地
+                }
             }
+            // 本地回退逻辑
+            const currentUser = JSON.parse(localStorage.getItem('taixuanUser')) || {};
+            const messages = JSON.parse(localStorage.getItem('taixuanMessages')) || [];
+            const uname = safeText(currentUser.username || '');
+            const mine = uname ? messages.filter(m => m.user === uname) : [];
+            repBody.innerHTML = mine.length === 0
+                ? '<div style="color:#888;">暂无您的留言记录或尚未登录</div>'
+                : mine
+                    .sort((a, b) => new Date(b.time) - new Date(a.time))
+                    .map(m => `
+                        <div style="padding:12px 16px;border:1px solid #eee;border-radius:8px;margin-bottom:10px;">
+                            <div style="font-weight:600;">我的留言</div>
+                            <div style="color:#333;margin-top:6px;">${safeText(m.content || '')}</div>
+                            <div style="color:#999;margin-top:6px;font-size:12px;">${new Date(m.time).toLocaleString()}</div>
+                            <div style="margin-top:10px;border-top:1px dashed #eee;padding-top:8px;">
+                                <div style="font-weight:600;">管理员回复</div>
+                                <div style="color:#444;margin-top:6px;">${safeText(m.reply || '尚未回复')}</div>
+                            </div>
+                        </div>
+                    `).join('');
         }
 
         // 更新公众课统计数据
@@ -7239,18 +7563,39 @@
                 }
                 // 写入待审批会员记录（用于白名单面板查看和管理员批准）
                 try {
-                    const members = getMembers();
-                    const exists = members.some(x => x.email === email);
-                    if (!exists) {
-                        members.push({
-                            username,
-                            email,
-                            inviteCode: inviteCodeInput,
-                            status: MEMBER_STATUS.pending,
-                            role: 'user',
-                            createdAt: Date.now()
-                        });
-                        saveMembers(members);
+                    if (window.supabaseClient) {
+                        // 以 user_id 作为唯一主键，确保与 RLS/表结构匹配
+                        let userId = data?.user?.id;
+                        if (!userId) {
+                            try {
+                                const { data: sess } = await supabaseClient.auth.getSession();
+                                userId = sess?.session?.user?.id;
+                            } catch(e) {}
+                        }
+                        if (!userId) {
+                            console.warn('注册后未获取到 user_id，稍后登录后再进行 members upsert');
+                        } else {
+                            await supabaseClient.from('members').upsert({
+                                user_id: userId,
+                                email,
+                                status: MEMBER_STATUS.pending,
+                                role: 'user'
+                            }, { onConflict: 'user_id' });
+                        }
+                    } else {
+                        const members = getMembers();
+                        const exists = members.some(x => x.email === email);
+                        if (!exists) {
+                            members.push({
+                                username,
+                                email,
+                                inviteCode: inviteCodeInput,
+                                status: MEMBER_STATUS.pending,
+                                role: 'user',
+                                createdAt: Date.now()
+                            });
+                            saveMembers(members);
+                        }
                     }
                 } catch(e) {}
                 // 若项目关闭了“邮箱验证”，注册将返回有效会话，直接自动登录；否则给出提示
@@ -7781,6 +8126,7 @@
         }, { threshold: 0.3 });
         document.querySelectorAll('section, footer').forEach(el => observer.observe(el));
     </script>
+<script src="./supabase.config.js"></script>
 <script type="module">
   let createClient;
   try {
@@ -7823,6 +8169,41 @@
   }
 
   async function initSupabase(){
+    // 1) URL 参数快速初始化（例如：1.html?supabaseUrl=...&supabaseAnon=...）
+    try {
+      const params = new URLSearchParams(location.search);
+      const urlQS = (params.get('supabaseUrl') || '').trim();
+      const anonQS = (params.get('supabaseAnon') || '').trim();
+      if (urlQS && anonQS) {
+        saveStoredConfig({ url: urlQS, anon: anonQS });
+        try {
+          window.supabaseClient = createClient(urlQS, anonQS);
+          console.log('Supabase 初始化完成(来源: URL 参数):', !!window.supabaseClient);
+          // 清理地址栏参数，避免泄露 anon key
+          history.replaceState(null, '', location.pathname);
+          return;
+        } catch(e) {
+          console.error('Supabase 初始化失败(URL 参数)：', e);
+        }
+      }
+    } catch(e) {}
+
+    // 2) 全局常量快速初始化（来源：supabase.config.js 或在控制台设置 window.__SUPABASE__）
+    try {
+      const predef = window.__SUPABASE__;
+      if (predef && predef.url && predef.anon && predef.url.startsWith('https://')) {
+        saveStoredConfig({ url: predef.url, anon: predef.anon });
+        try {
+          window.supabaseClient = createClient(predef.url, predef.anon);
+          console.log('Supabase 初始化完成(来源: 全局常量):', !!window.supabaseClient);
+          return;
+        } catch(e) {
+          console.error('Supabase 初始化失败(全局常量)：', e);
+        }
+      }
+    } catch(e) {}
+
+    // 3) 默认：从本地存储读取配置
     const cfg = getStoredConfig();
     if (needsConfig(cfg)) {
       showModal(cfg);
