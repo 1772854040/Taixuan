@@ -8345,9 +8345,28 @@
         }, { threshold: 0.3 });
         document.querySelectorAll('section, footer').forEach(el => observer.observe(el));
     </script>
+<script>
+  // 可见性兜底：若观察器未及时触发，确保初始渲染可见
+  window.addEventListener('DOMContentLoaded', () => {
+    try {
+      document.querySelectorAll('section, footer').forEach(el => el.classList.add('section-visible'));
+    } catch (_) {}
+  });
+</script>
+<style id="visibilityFallback">
+  /* 初始可见性兜底，避免因脚本异常导致整页透明 */
+  .hero-content,
+  .teacher-container,
+  #courseCardsContainer,
+  .sponsor-container,
+  #publicClassesScroll,
+  .message-board,
+  .footer-content { opacity: 1 !important; transform: none !important; }
+</style>
 <script src="./supabase.config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script type="module">
+<script>
+;(async () => {
   let createClient;
   try {
     ({ createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'));
@@ -8497,6 +8516,7 @@
       }
     }
   } catch(e) { /* 忽略自检错误 */ }
+})();
 </script>
 <!-- Supabase 动态配置弹窗（仅本地存储） -->
 <div id="supabaseConfigModal" style="position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.4);z-index:9999;">
