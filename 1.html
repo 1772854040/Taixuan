@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' data:; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; connect-src 'self' https://*.supabase.co https://*.supabase.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' data:; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://esm.sh https://unpkg.com; connect-src 'self' https://*.supabase.co https://*.supabase.com wss://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'">
     <title>太玄文化 - 易学大师个人品牌</title>
     <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
     <link rel="preload" as="image" href="taixuan-bg.jpg">
@@ -7332,7 +7332,12 @@
                     showAdminPanel();
                 });
             }
-            // 邮件：根据登录状态更新显示与气泡（刷新后兜底处理）
+            // 管理员工具条可见性 + 邮件显示控制
+            try {
+                const helper = document.getElementById('supabaseHelpers');
+                if (helper) helper.style.display = (role === 'admin') ? 'flex' : 'none';
+                if (typeof window.__applySupabaseHelperVisibility === 'function') window.__applySupabaseHelperVisibility(role);
+            } catch(e) {}
             try {
                 const mailItem = document.getElementById('mailNavItem');
                 if (mailItem) mailItem.style.display = (role === 'admin') ? 'none' : 'block';
@@ -7732,11 +7737,146 @@
         document.querySelectorAll('section, footer').forEach(el => observer.observe(el));
     </script>
 <script type="module">
-  import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-  const SUPABASE_URL = 'https://YOUR_PROJECT.supabase.co'; // 替换为你的 Supabase 项目 URL
-  const SUPABASE_ANON_KEY = 'YOUR_ANON_KEY'; // 替换为你的 Supabase 匿名密钥
-  window.supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  console.log('Supabase 初始化完成:', !!window.supabaseClient);
+  let createClient;
+  try {
+    ({ createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'));
+  } catch (e1) {
+    try {
+      ({ createClient } = await import('https://esm.sh/@supabase/supabase-js@2'));
+    } catch (e2) {
+      ({ createClient } = await import('https://unpkg.com/@supabase/supabase-js@2.45.4/+esm'));
+    }
+  }
+
+  const modal = document.getElementById('supabaseConfigModal');
+  const urlInput = document.getElementById('supabaseUrlInput');
+  const anonInput = document.getElementById('supabaseAnonInput');
+  const saveBtn = document.getElementById('saveSupabaseConfigBtn');
+  const closeBtn = document.getElementById('closeSupabaseConfigBtn');
+
+  function getStoredConfig(){
+    try { return JSON.parse(localStorage.getItem('supabaseConfig')) || {}; } catch(e) { return {}; }
+  }
+  function saveStoredConfig(cfg){
+    try { localStorage.setItem('supabaseConfig', JSON.stringify(cfg || {})); } catch(e) {}
+  }
+  function needsConfig(cfg){
+    return !cfg || !cfg.url || !cfg.anon || cfg.url.includes('YOUR_PROJECT') || cfg.anon.includes('YOUR_ANON_KEY');
+  }
+  function showModal(prefill){
+    try {
+      modal.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+      if (prefill){
+        urlInput.value = prefill.url || '';
+        anonInput.value = prefill.anon || '';
+      }
+    } catch(e) {}
+  }
+  function hideModal(){
+    try { modal.style.display = 'none'; document.body.style.overflow = ''; } catch(e) {}
+  }
+
+  async function initSupabase(){
+    const cfg = getStoredConfig();
+    if (needsConfig(cfg)) {
+      showModal(cfg);
+      return;
+    }
+    try {
+      window.supabaseClient = createClient(cfg.url, cfg.anon);
+      console.log('Supabase 初始化完成:', !!window.supabaseClient);
+    } catch(e) {
+      console.error('Supabase 初始化失败：', e);
+      showModal(cfg);
+    }
+  }
+
+  // 绑定按钮
+  saveBtn?.addEventListener('click', async () => {
+    const url = (urlInput.value || '').trim();
+    const anon = (anonInput.value || '').trim();
+    if (!url || !url.startsWith('https://') || !url.includes('.supabase.co')){
+      alert('请输入有效的 Supabase 项目 URL（形如 https://xxxx.supabase.co）');
+      return;
+    }
+    if (!anon || anon.length < 20){
+      alert('请输入有效的匿名密钥（anon key）');
+      return;
+    }
+    saveStoredConfig({ url, anon });
+    try {
+      window.supabaseClient = createClient(url, anon);
+      console.log('Supabase 初始化完成:', !!window.supabaseClient);
+      hideModal();
+      alert('配置已保存并初始化成功！现在可以注册/登录。');
+    } catch(e){
+      alert('初始化失败：' + (e?.message || '请稍后重试'));
+    }
+  });
+  closeBtn?.addEventListener('click', hideModal);
+  window.openSupabaseConfig = () => showModal(getStoredConfig());
+  window.addEventListener('keydown', (ev)=>{ if (ev.key==='Escape' && modal?.style.display==='flex') hideModal(); });
+
+  // 初始化
+  await initSupabase();
+</script>
+<!-- Supabase 动态配置弹窗（仅本地存储） -->
+<div id="supabaseConfigModal" style="position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.4);z-index:9999;">
+  <div style="background:#fff;width:92%;max-width:560px;padding:16px 18px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.15);">
+    <h3 style="margin:0 0 12px 0;font-weight:600;color:#333;">配置 Supabase</h3>
+    <label style="display:block;margin-bottom:10px;color:#444;">
+      项目 URL
+      <input id="supabaseUrlInput" type="text" placeholder="https://xxxx.supabase.co" style="width:100%;margin-top:6px;padding:10px 12px;border:1px solid #ddd;border-radius:6px;">
+    </label>
+    <label style="display:block;margin-bottom:14px;color:#444;">
+      匿名密钥（anon key）
+      <input id="supabaseAnonInput" type="text" placeholder="复制自 Supabase 控制台 API" style="width:100%;margin-top:6px;padding:10px 12px;border:1px solid #ddd;border-radius:6px;">
+    </label>
+    <div style="display:flex;gap:10px;">
+      <button id="saveSupabaseConfigBtn" style="flex:1;padding:10px 12px;border:none;border-radius:6px;background:#3D2B1F;color:#fff;">保存并初始化</button>
+      <button id="closeSupabaseConfigBtn" style="padding:10px 12px;border:1px solid #ccc;border-radius:6px;background:#fff;color:#333;">取消</button>
+    </div>
+    <p style="margin-top:10px;color:#666;font-size:13px;">说明：此配置仅保存在浏览器本地（localStorage），用于前端认证与注册；若后续需要固定配置再写入源码。</p>
+  </div>
+</div>
+<!-- Supabase 配置入口与自检 -->
+<div id="supabaseHelpers" style="position:fixed;right:18px;bottom:96px;z-index:2001;display:none;gap:8px;">
+   <button id="openSupabaseConfigBtn" style="padding:8px 12px;border:1px solid #ccc;border-radius:18px;background:#fff;color:#333;box-shadow:0 2px 8px rgba(0,0,0,.08);">配置 Supabase</button>
+   <button id="selfTestSupabaseBtn" style="padding:8px 12px;border:1px solid #ccc;border-radius:18px;background:#3D2B1F;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.12);">自检</button>
+ </div>
+<script>
+  // 辅助入口与自检绑定 + 管理员可见性
+  (function(){
+    const helper = document.getElementById('supabaseHelpers');
+    function applyHelperVisibility(role) {
+      if (!helper) return;
+      helper.style.display = role === 'admin' ? 'flex' : 'none';
+    }
+    // 公开一个方法给登录态刷新时调用
+    window.__applySupabaseHelperVisibility = applyHelperVisibility;
+
+    // 初次加载：根据本地存储的用户角色决定是否显示
+    try {
+      const u = JSON.parse(localStorage.getItem('taixuanUser')) || {};
+      applyHelperVisibility(u.role);
+    } catch(e) {}
+
+    // 绑定按钮行为
+    const openBtn = document.getElementById('openSupabaseConfigBtn');
+    const testBtn = document.getElementById('selfTestSupabaseBtn');
+    if (openBtn) openBtn.addEventListener('click', ()=> { try { window.openSupabaseConfig?.(); } catch(e) { alert('无法打开配置弹窗，请刷新页面'); } });
+    if (testBtn) testBtn.addEventListener('click', async ()=> {
+      try {
+        if (!window.supabaseClient) { alert('自检：未初始化，请点“配置 Supabase”并保存'); return; }
+        const { data, error } = await window.supabaseClient.auth.getSession();
+        if (error) { alert('自检失败：' + error.message); }
+        else { alert(data?.session ? '自检：已登录（初始化正常）' : '自检：未登录（初始化正常）'); }
+      } catch(e) {
+        alert('自检异常：' + (e?.message || e));
+      }
+    });
+  })();
 </script>
 <script><!-- 已移除全局粒子效果脚本：保留语录横幅粒子效果 --></script>
 </body>
