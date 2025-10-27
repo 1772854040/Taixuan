@@ -7739,7 +7739,7 @@
 <script><!-- 已移除全局粒子效果脚本：保留语录横幅粒子效果 --></script>
     <!-- 接入 Supabase（使用全局配置 supabase.config.js）用于云同步 -->
     <script src="./supabase.config.js"></script>
-    <script src="/assets/supabase.js"></script>
+    <script src="./assets/supabase.js"></script>
     <script>
       try {
         if (window.supabase && window.__SUPABASE__ && window.__SUPABASE__.url && window.__SUPABASE__.anon) {
@@ -7927,9 +7927,12 @@
             });
         } catch (e) {}
         try {
-            setInterval(cloudSaveKVFromLocal, 30 * 1000);
-        } catch (e) {}
-    })();
-</script>
-</body>
-</html>
+             setInterval(cloudLoadKVToLocal, 5 * 1000);
+         } catch (e) {}
+         try {
+              setInterval(cloudSaveKVFromLocal, 5 * 1000);
+          } catch (e) {}
+      })();
+  </script>
+  </body>
+  </html>

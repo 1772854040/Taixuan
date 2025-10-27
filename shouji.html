@@ -2968,7 +2968,7 @@
     </script>
     <!-- 接入 Supabase（使用全局配置 supabase.config.js）并自愈 members -->
     <script src="./supabase.config.js"></script>
-    <script src="/assets/supabase.js"></script>
+    <script src="./assets/supabase.js"></script>
     <script>
       try {
         if (window.supabase && window.__SUPABASE__ && window.__SUPABASE__.url && window.__SUPABASE__.anon) {
@@ -3164,9 +3164,12 @@
             });
         } catch (e) {}
         try {
-            setInterval(cloudSaveKVFromLocalMobile, 30 * 1000);
-        } catch (e) {}
-    })();
-</script>
-</body>
-</html>
+             setInterval(cloudLoadKVToLocalMobile, 5 * 1000);
+         } catch (e) {}
+         try {
+              setInterval(cloudSaveKVFromLocalMobile, 5 * 1000);
+          } catch (e) {}
+      })();
+  </script>
+  </body>
+  </html>
