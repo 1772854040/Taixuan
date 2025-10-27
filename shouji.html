@@ -2968,7 +2968,7 @@
     </script>
     <!-- 接入 Supabase（使用全局配置 supabase.config.js）并自愈 members -->
     <script src="./supabase.config.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+    <script src="/assets/supabase.js"></script>
     <script>
       try {
         if (window.supabase && window.__SUPABASE__ && window.__SUPABASE__.url && window.__SUPABASE__.anon) {
@@ -3008,7 +3008,22 @@
             } catch(e) { return false; }
           };
         } else {
-          console.warn('Supabase 未初始化：请在 supabase.config.js 填写项目配置');
+          console.warn('Supabase 未初始化或 SDK 未加载：请放置 /assets/supabase.js 并在 supabase.config.js 填写项目配置');
+          try {
+            const note = document.createElement('div');
+            note.style.position = 'fixed';
+            note.style.bottom = '10px';
+            note.style.right = '10px';
+            note.style.zIndex = '9999';
+            note.style.background = '#fff7e6';
+            note.style.border = '1px solid #ffd591';
+            note.style.color = '#ad4e00';
+            note.style.padding = '8px 12px';
+            note.style.borderRadius = '8px';
+            note.style.boxShadow = '0 6px 16px rgba(0,0,0,0.06)';
+            note.textContent = '云读写未就绪：请将 Supabase SDK 放到 /assets/supabase.js，并配置 supabase.config.js';
+            document.body.appendChild(note);
+          } catch(e){}
         }
       } catch(e) { console.warn('Supabase 初始化失败或未配置：', e); }
     </script>
@@ -3019,5 +3034,139 @@
         });
       }
     </script>
+    <script>
+      (function(){
+        function cloudGetStudents(){ try { return JSON.parse(localStorage.getItem('taixuanStudents')) || []; } catch(e){ return []; } }
+        function cloudGetGroups(){ try { return JSON.parse(localStorage.getItem('taixuanGroups')) || []; } catch(e){ return []; } }
+        window.cloudSaveFromLocalMobile = async function(){
+          if (!window.supabaseClient) return;
+          try {
+            const { data: sess } = await supabaseClient.auth.getSession();
+            const me = sess.session?.user; if (!me) return;
+            try { await ensureMemberRow(me.id, me.email || ''); } catch(_){ }
+            const s = cloudGetStudents(); const g = cloudGetGroups();
+            if (s.length) {
+              await supabaseClient.from('students').upsert(
+                s.map(x => ({
+                  id: x.id,
+                  name: x.name || '',
+                  email: x.email || '',
+                  group: x.group || '',
+                  joinDate: x.joinDate || '',
+                  progress: Number(x.progress||0),
+                  studyTime: Number(x.studyTime||0),
+                  courses: Array.isArray(x.courses)? x.courses : []
+                })), { onConflict: 'id' }
+              );
+            }
+            if (g.length) {
+              await supabaseClient.from('groups').upsert(
+                g.map(y => ({
+                  name: y.name || '',
+                  manager: y.manager || '',
+                  createDate: y.createDate || '',
+                  description: y.description || '',
+                  level: Number(y.level||1)
+                })), { onConflict: 'name' }
+              );
+            }
+          } catch(e){ console.warn('移动端云写回失败：', e); }
+        };
+        document.addEventListener('DOMContentLoaded', () => {
+          try {
+            const user = JSON.parse(localStorage.getItem('taixuanUser')) || {};
+            if (user && user.role === 'admin') {
+              setInterval(() => { window.cloudSaveFromLocalMobile?.(); }, 30000);
+            }
+          } catch(e){}
+        });
+      })();
+    </script>
+<script>
+    // 移动端 KV 云同步的 Key 白名单
+    const MOBILE_CLOUD_KV_KEYS = [
+        'taixuanCourses',
+        'taixuanPublicClasses',
+        'taixuanInviteCodes',
+        'taixuanVipCodes',
+        'taixuanDiscountCodes',
+        'taixuanAnnouncements',
+        'taixuanMessages',
+        'taixuanMembers',
+        'taixuanMusicSettings',
+        'vipDesiredPlan',
+        'taixuanInviteInit'
+    ];
+
+    async function cloudLoadKVToLocalMobile() {
+        try {
+            if (!window.supabaseClient) return;
+            for (const key of MOBILE_CLOUD_KV_KEYS) {
+                const { data, error } = await supabaseClient
+                    .from('app_kv_store')
+                    .select('value')
+                    .eq('key', key)
+                    .maybeSingle();
+                if (error) {
+                    console.warn('[KV/M] Load error', key, error.message);
+                    continue;
+                }
+                if (data && data.value !== undefined) {
+                    localStorage.setItem(key, JSON.stringify(data.value));
+                    console.log('[KV/M] Loaded', key, 'items:', Array.isArray(data.value) ? data.value.length : 1);
+                }
+            }
+            // 刷新移动端相关区域（若存在）
+            try {
+                if (typeof renderVipCodesMobile === 'function') renderVipCodesMobile();
+                if (typeof renderMobileCourses === 'function') renderMobileCourses();
+            } catch (e) {}
+        } catch (e) {
+            console.warn('[KV/M] cloudLoadKVToLocalMobile failed', e);
+        }
+    }
+
+    async function cloudSaveKVFromLocalMobile() {
+        try {
+            if (!window.supabaseClient) return;
+            // 仅管理员写回
+            try {
+                const u = JSON.parse(localStorage.getItem('taixuanUser')) || {};
+                if (!(u && u.role === 'admin')) return;
+            } catch (e) { return; }
+
+            for (const key of MOBILE_CLOUD_KV_KEYS) {
+                let value;
+                try {
+                    value = JSON.parse(localStorage.getItem(key) || '[]');
+                } catch (e) {
+                    value = [];
+                }
+                const payload = { key, value };
+                const { error } = await supabaseClient
+                    .from('app_kv_store')
+                    .upsert(payload, { onConflict: 'key' });
+                if (error) {
+                    console.warn('[KV/M] Save error', key, error.message);
+                } else {
+                    console.log('[KV/M] Saved', key, 'items:', Array.isArray(value) ? value.length : 1);
+                }
+            }
+        } catch (e) {
+            console.warn('[KV/M] cloudSaveKVFromLocalMobile failed', e);
+        }
+    }
+
+    (function initMobileCloudKVSync() {
+        try {
+            document.addEventListener('DOMContentLoaded', function() {
+                setTimeout(cloudLoadKVToLocalMobile, 1000);
+            });
+        } catch (e) {}
+        try {
+            setInterval(cloudSaveKVFromLocalMobile, 30 * 1000);
+        } catch (e) {}
+    })();
+</script>
 </body>
 </html>
