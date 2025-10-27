@@ -4953,6 +4953,14 @@
             try { return JSON.parse(localStorage.getItem('taixuanMembers')) || []; } catch(e) { return []; }
         }
         function saveMembers(members) { localStorage.setItem('taixuanMembers', JSON.stringify(members)); }
+        function isApprovedCurrentUser() {
+            try {
+                const u = JSON.parse(localStorage.getItem('taixuanUser')) || {};
+                const members = getMembers();
+                const m = members.find(x => (u.email && x.email === u.email) || (u.username && x.username === u.username));
+                return !!(m && m.status === MEMBER_STATUS.active);
+            } catch(e) { return false; }
+        }
         function getInviteCodes() {
             try { return JSON.parse(localStorage.getItem('taixuanInviteCodes')) || []; } catch(e) { return []; }
         }
@@ -5412,6 +5420,11 @@
                             // 设置目标赞助类型（用于限制激活码类型）
                             const desiredPlan = (/月度/.test(productName) ? 'monthly' : (/年度/.test(productName) ? 'yearly' : ''));
                             if (desiredPlan) { localStorage.setItem('vipDesiredPlan', desiredPlan); } else { localStorage.removeItem('vipDesiredPlan'); }
+                            // 白名单审批通过后才允许开通会员/赞助
+                            if (!isApprovedCurrentUser()) {
+                                alert('您的注册信息已提交，待管理员审批通过后方可开通会员/赞助。');
+                                return;
+                            }
                             const modal = document.getElementById('vipActivateModal');
                             if (modal) {
                                 modal.style.display = 'flex';
@@ -7224,9 +7237,36 @@
                     alert('注册失败：' + (error.message || '请稍后再试'));
                     return;
                 }
-                // 根据 Supabase 默认策略：需邮箱验证后方可登录
-                loginModal.style.display = 'none';
-                alert('注册成功！请前往邮箱完成验证后再登录。');
+                // 写入待审批会员记录（用于白名单面板查看和管理员批准）
+                try {
+                    const members = getMembers();
+                    const exists = members.some(x => x.email === email);
+                    if (!exists) {
+                        members.push({
+                            username,
+                            email,
+                            inviteCode: inviteCodeInput,
+                            status: MEMBER_STATUS.pending,
+                            role: 'user',
+                            createdAt: Date.now()
+                        });
+                        saveMembers(members);
+                    }
+                } catch(e) {}
+                // 若项目关闭了“邮箱验证”，注册将返回有效会话，直接自动登录；否则给出提示
+                const session = data && data.session;
+                if (session) {
+                    let userInfo = { username, email, role: 'user', isLoggedIn: true };
+                    userInfo = applyDailyLoginReward(ensureUserStats(userInfo));
+                    if (userInfo.coins > 999) userInfo.coins = 999;
+                    localStorage.setItem('taixuanUser', JSON.stringify(userInfo));
+                    updateAuthUI(userInfo.username, userInfo.role);
+                    loginModal.style.display = 'none';
+                    alert('注册成功！已自动登录（无需邮箱验证）');
+                } else {
+                    loginModal.style.display = 'none';
+                    alert('注册成功！如仍提示需邮箱验证，请在 Supabase 控制台关闭“启用邮箱验证”。');
+                }
             } catch(err) {
                 alert('注册异常：' + (err && err.message ? err.message : '请稍后重试'));
             }
@@ -7322,6 +7362,11 @@
             // 绑定我的课程链接事件
             myCoursesLink.addEventListener('click', function(e) {
                 e.preventDefault();
+                // 白名单审批通过后才允许访问课程
+                if (!isApprovedCurrentUser()) {
+                    alert('尚未通过白名单审批，暂无法访问课程。');
+                    return;
+                }
                 showMyCoursesPage();
             });
             
