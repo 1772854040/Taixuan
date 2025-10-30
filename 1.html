@@ -7773,6 +7773,9 @@
           };
         } else {
           console.warn('Supabase 未初始化或 SDK 未加载：请放置 /assets/supabase.js 并在 supabase.config.js 填写项目配置');
+          // 默认不显示提示，仅在诊断参数下显示（diagnose=1 或 debug=1）
+          const __params = new URLSearchParams(location.search);
+          const __showNote = (__params.get('diagnose') === '1' || __params.get('debug') === '1');
           try {
             const note = document.createElement('div');
             note.style.position = 'fixed';
@@ -7787,7 +7790,7 @@
             note.style.boxShadow = '0 6px 16px rgba(0,0,0,0.06)';
             note.id = 'supabase-not-ready';
             note.textContent = '云读写未就绪：请将 Supabase SDK 放到 /assets/supabase.js，并配置 supabase.config.js';
-            document.body.appendChild(note);
+            if (__showNote) document.body.appendChild(note);
 
             // 统一的初始化尝试：配置有效且 SDK 可用时创建客户端并移除提示
             function tryInit(){
