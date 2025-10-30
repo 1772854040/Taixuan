@@ -2967,12 +2967,21 @@
         });
     </script>
     <!-- 接入 Supabase（使用全局配置 supabase.config.js）并自愈 members -->
-    <script src="./supabase.config.js"></script>
-    <script src="./assets/supabase.js"></script>
+    <script src="./supabase.config.js?v=cfg1"></script>
+    <script src="./assets/supabase.js?v=local-min-1"></script>
     <script>
+      function isSupabaseConfigValid(){
+        try{
+          const u = (window.__SUPABASE__ && window.__SUPABASE__.url) || '';
+          const a = (window.__SUPABASE__ && window.__SUPABASE__.anon) || '';
+          const okDomain = /^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(u) && !/your-project\.supabase\.co/i.test(u);
+          return !!(window.supabase && okDomain && a && a.length > 20);
+        }catch(e){ return false; }
+      }
       try {
-        if (window.supabase && window.__SUPABASE__ && window.__SUPABASE__.url && window.__SUPABASE__.anon) {
+        if (isSupabaseConfigValid()) {
           window.supabaseClient = window.supabase.createClient(window.__SUPABASE__.url, window.__SUPABASE__.anon);
+          try { const n = document.getElementById('supabase-not-ready'); if (n) n.remove(); } catch(e){}
 
           // 自愈：保证 members 存在当前用户记录
           window.ensureMemberRow = async function(userId, email){
@@ -3021,8 +3030,36 @@
             note.style.padding = '8px 12px';
             note.style.borderRadius = '8px';
             note.style.boxShadow = '0 6px 16px rgba(0,0,0,0.06)';
+            note.id = 'supabase-not-ready';
             note.textContent = '云读写未就绪：请将 Supabase SDK 放到 /assets/supabase.js，并配置 supabase.config.js';
             document.body.appendChild(note);
+
+            // 统一的初始化尝试：配置有效且 SDK 可用时创建客户端并移除提示
+            function tryInit(){
+              try {
+                if (isSupabaseConfigValid() && window.supabase && !window.supabaseClient) {
+                  window.supabaseClient = window.supabase.createClient(window.__SUPABASE__.url, window.__SUPABASE__.anon);
+                  const n = document.getElementById('supabase-not-ready'); if (n) n.remove();
+                  return true;
+                }
+              } catch(_) {}
+              return false;
+            }
+
+            // 首次延迟尝试（应对异步加载）
+            try { setTimeout(tryInit, 600); } catch(_) {}
+
+            // 事件驱动：SDK 加载器触发后再次尝试
+            try { window.addEventListener('supabase-loaded', tryInit); } catch(_) {}
+
+            // 周期性重试：最多 10 秒（适配 CDN 失败回退到本地最小客户端的场景）
+            try {
+              const start = Date.now();
+              const iv = setInterval(function(){
+                if (tryInit()) { clearInterval(iv); }
+                else if (Date.now() - start > 10000) { clearInterval(iv); }
+              }, 500);
+            } catch(_) {}
           } catch(e){}
         }
       } catch(e) { console.warn('Supabase 初始化失败或未配置：', e); }
@@ -3100,6 +3137,7 @@
 
     async function cloudLoadKVToLocalMobile() {
         try {
+            if (!isSupabaseConfigValid()) return;
             if (!window.supabaseClient) return;
             for (const key of MOBILE_CLOUD_KV_KEYS) {
                 const { data, error } = await supabaseClient
@@ -3128,6 +3166,7 @@
 
     async function cloudSaveKVFromLocalMobile() {
         try {
+            if (!isSupabaseConfigValid()) return;
             if (!window.supabaseClient) return;
             // 仅管理员写回
             try {
@@ -3135,12 +3174,17 @@
                 if (!(u && u.role === 'admin')) return;
             } catch (e) { return; }
 
+            window.__KV_LAST_SENT__ = window.__KV_LAST_SENT__ || {};
             for (const key of MOBILE_CLOUD_KV_KEYS) {
                 let value;
                 try {
                     value = JSON.parse(localStorage.getItem(key) || '[]');
                 } catch (e) {
                     value = [];
+                }
+                const fingerprint = JSON.stringify(value);
+                if (window.__KV_LAST_SENT__[key] === fingerprint) {
+                    continue;
                 }
                 const payload = { key, value };
                 const { error } = await supabaseClient
@@ -3149,6 +3193,7 @@
                 if (error) {
                     console.warn('[KV/M] Save error', key, error.message);
                 } else {
+                    window.__KV_LAST_SENT__[key] = fingerprint;
                     console.log('[KV/M] Saved', key, 'items:', Array.isArray(value) ? value.length : 1);
                 }
             }
@@ -3164,11 +3209,24 @@
             });
         } catch (e) {}
         try {
-             setInterval(cloudLoadKVToLocalMobile, 1 * 1000);
+            let loadTimer = null, saveTimer = null;
+            let loadMs = null, saveMs = null;
+            let lastActivity = Date.now();
+            function desiredInterval(){
+              const hidden = document.visibilityState === 'hidden';
+              const idle = Date.now() - lastActivity > 15000;
+              return (hidden || idle) ? 5000 : 1000;
+            }
+            function ensureIntervals(){
+              const interval = desiredInterval();
+              if (loadMs !== interval) { if (loadTimer) clearInterval(loadTimer); loadTimer = setInterval(cloudLoadKVToLocalMobile, interval); loadMs = interval; }
+              if (saveMs !== interval) { if (saveTimer) clearInterval(saveTimer); saveTimer = setInterval(cloudSaveKVFromLocalMobile, interval); saveMs = interval; }
+            }
+            ['mousemove','keydown','touchstart','scroll'].forEach(evt => { window.addEventListener(evt, () => { lastActivity = Date.now(); ensureIntervals(); }, { passive:true }); });
+            document.addEventListener('visibilitychange', ensureIntervals);
+            ensureIntervals();
+            setInterval(ensureIntervals, 10000);
          } catch (e) {}
-         try {
-              setInterval(cloudSaveKVFromLocalMobile, 1 * 1000);
-          } catch (e) {}
       })();
   </script>
   </body>
