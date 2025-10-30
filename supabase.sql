@@ -268,3 +268,201 @@ DO $$ BEGIN
     WITH CHECK (auth.uid() IS NOT NULL);
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 -- - 本脚本选择 members 表以获得更可控的角色管理与复用性
+
+-- 12) 学员表：students（用于云同步学员数据）
+create table if not exists public.students (
+  id uuid primary key default gen_random_uuid(),
+  name text not null default '',
+  email text default '',
+  "group" text default '',
+  joinDate text default '',
+  progress int default 0,
+  studyTime int default 0,
+  courses jsonb not null default '[]'::jsonb,
+  created_at timestamptz not null default now()
+);
+create index if not exists students_email_idx on public.students(email);
+create index if not exists students_group_idx on public.students("group");
+alter table public.students enable row level security;
+alter table public.students force row level security;
+DO $$ BEGIN
+  CREATE POLICY students_select_authenticated ON public.students
+    FOR SELECT TO authenticated
+    USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  CREATE POLICY students_admin_insert ON public.students
+    FOR INSERT TO authenticated
+    WITH CHECK (
+      EXISTS(SELECT 1 FROM public.members me WHERE me.user_id = auth.uid() AND me.role = 'admin')
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  CREATE POLICY students_admin_update ON public.students
+    FOR UPDATE TO authenticated
+    USING (
+      EXISTS(SELECT 1 FROM public.members me WHERE me.user_id = auth.uid() AND me.role = 'admin')
+    )
+    WITH CHECK (
+      EXISTS(SELECT 1 FROM public.members me WHERE me.user_id = auth.uid() AND me.role = 'admin')
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  CREATE POLICY students_admin_delete ON public.students
+    FOR DELETE TO authenticated
+    USING (
+      EXISTS(SELECT 1 FROM public.members me WHERE me.user_id = auth.uid() AND me.role = 'admin')
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- 13) 分组表：groups（用于云同步分组数据）
+create table if not exists public.groups (
+  name text primary key,
+  manager text default '',
+  createDate text default '',
+  description text default '',
+  level int not null default 1,
+  created_at timestamptz not null default now()
+);
+create index if not exists groups_level_idx on public.groups(level);
+alter table public.groups enable row level security;
+alter table public.groups force row level security;
+DO $$ BEGIN
+  CREATE POLICY groups_select_authenticated ON public.groups
+    FOR SELECT TO authenticated
+    USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  CREATE POLICY groups_admin_insert ON public.groups
+    FOR INSERT TO authenticated
+    WITH CHECK (
+      EXISTS(SELECT 1 FROM public.members me WHERE me.user_id = auth.uid() AND me.role = 'admin')
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  CREATE POLICY groups_admin_update ON public.groups
+    FOR UPDATE TO authenticated
+    USING (
+      EXISTS(SELECT 1 FROM public.members me WHERE me.user_id = auth.uid() AND me.role = 'admin')
+    )
+    WITH CHECK (
+      EXISTS(SELECT 1 FROM public.members me WHERE me.user_id = auth.uid() AND me.role = 'admin')
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  CREATE POLICY groups_admin_delete ON public.groups
+    FOR DELETE TO authenticated
+    USING (
+      EXISTS(SELECT 1 FROM public.members me WHERE me.user_id = auth.uid() AND me.role = 'admin')
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- 14) 应用 KV 存储：app_kv_store（用于云端保存本地 JSON 配置/数据）
+create table if not exists public.app_kv_store (
+  key text primary key,
+  value jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+create index if not exists app_kv_store_value_gin on public.app_kv_store using gin (value);
+alter table public.app_kv_store enable row level security;
+alter table public.app_kv_store force row level security;
+DO $$ BEGIN
+  CREATE POLICY kv_select_authenticated ON public.app_kv_store
+    FOR SELECT TO authenticated
+    USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  CREATE POLICY kv_admin_insert ON public.app_kv_store
+    FOR INSERT TO authenticated
+    WITH CHECK (
+      EXISTS(SELECT 1 FROM public.members me WHERE me.user_id = auth.uid() AND me.role = 'admin')
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  CREATE POLICY kv_admin_update ON public.app_kv_store
+    FOR UPDATE TO authenticated
+    USING (
+      EXISTS(SELECT 1 FROM public.members me WHERE me.user_id = auth.uid() AND me.role = 'admin')
+    )
+    WITH CHECK (
+      EXISTS(SELECT 1 FROM public.members me WHERE me.user_id = auth.uid() AND me.role = 'admin')
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  CREATE POLICY kv_admin_delete ON public.app_kv_store
+    FOR DELETE TO authenticated
+    USING (
+      EXISTS(SELECT 1 FROM public.members me WHERE me.user_id = auth.uid() AND me.role = 'admin')
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- 15) members 补充列（用于自愈与审批）
+alter table if exists public.members add column if not exists email text;
+alter table if exists public.members add column if not exists status text check (status in ('active','pending','banned')) default 'active';
+create index if not exists members_email_idx on public.members(email);
+
+-- 16) RPC：按邮箱关联 students.user_id（批量与自助）
+create or replace function public.link_students_to_auth_by_email_bulk()
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  updated integer := 0;
+begin
+  -- 仅管理员可执行批量关联
+  if not exists (
+    select 1 from public.members m
+    where m.user_id = auth.uid() and m.role = 'admin'
+  ) then
+    raise exception 'forbidden: admin only';
+  end if;
+
+  update public.students s
+  set user_id = u.id
+  from auth.users u
+  where lower(s.email) = lower(u.email)
+    and (s.user_id is distinct from u.id);
+
+  get diagnostics updated = row_count;
+  return updated;
+end;
+$$;
+
+grant execute on function public.link_students_to_auth_by_email_bulk() to authenticated;
+
+create or replace function public.link_my_student_record()
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  uid uuid := auth.uid();
+  email text;
+  updated integer := 0;
+begin
+  if uid is null then
+    return 0;
+  end if;
+
+  select u.email into email
+  from auth.users u
+  where u.id = uid;
+
+  if email is null then
+    return 0;
+  end if;
+
+  update public.students s
+  set user_id = uid
+  where lower(s.email) = lower(email)
+    and (s.user_id is distinct from uid);
+
+  get diagnostics updated = row_count;
+  return updated;
+end;
+$$;
+
+grant execute on function public.link_my_student_record() to authenticated;

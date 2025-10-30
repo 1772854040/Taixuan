@@ -74,6 +74,18 @@
         <div class="actions">
           <button id="sign-out" class="secondary">退出登录</button>
         </div>
+        <div class="muted" style="margin-top:8px;">
+          我的用户ID：<span id="my-user-id" class="kbd">(未获取)</span> 
+          <button id="copy-user-id" class="secondary" style="margin-left:8px;">复制</button>
+        </div>
+        <div class="muted" style="margin-top:6px; font-size:0.9rem;">
+          赋权 SQL（将下方 <span class="kbd"><ADMIN_UUID></span> 替换为你的用户ID后，粘贴到 Supabase SQL Editor 运行）：
+          <div class="kbd" id="grant-admin-sql" style="display:block; white-space: pre-wrap; margin-top:6px;">
+insert into public.members (user_id, role)
+values ('<ADMIN_UUID>', 'admin')
+on conflict (user_id) do update set role = excluded.role;
+          </div>
+        </div>
       </div>
     </section>
 
@@ -152,40 +164,39 @@ create policy if not exists contacts_insert_own on public.contacts
     <div class="muted">© 太玄 · 使用 GitHub Pages 托管 · Supabase 提供认证与存储</div>
   </footer>
 
+  <!-- 接入全局配置与本地 UMD Supabase（与 1.html / shouji.html 保持一致） -->
+  <script src="./supabase.config.js?v=cfg2"></script>
+  <script src="./assets/supabase.js?v=local-min-1"></script>
+
   <script type="module">
     let supabase;
-     (async () => {
-       let createClient;
-       try {
-         ({ createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'));
-       } catch (e) {
-         try {
-           ({ createClient } = await import('https://unpkg.com/@supabase/supabase-js@2/dist/esm/index.js'));
-         } catch (e2) {
-           const ui = document.getElementById('auth-status');
-           if (ui) ui.textContent = 'Supabase 库加载失败：请检查网络或稍后重试（可切换其他 CDN）';
-           console.error('Failed to load supabase-js from CDNs', e, e2);
-           return;
-         }
-       }
- 
-       // 动态读取主页已保存的 Supabase 配置（localStorage: supabaseConfig），否则回退到占位常量
-       const storedCfg = (() => { try { return JSON.parse(localStorage.getItem('supabaseConfig')) || {}; } catch(e) { return {}; } })();
-       const SUPABASE_URL = storedCfg.url || 'https://YOUR-PROJECT.supabase.co';
-       const SUPABASE_ANON_KEY = storedCfg.anon || 'YOUR-ANON-KEY';
-       supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-       if (!storedCfg.url || !storedCfg.anon) {
-         const ui = document.getElementById('auth-status');
-         if (ui) ui.textContent = '未检测到项目配置：请先在主页右下角“配置 Supabase”保存 URL 与 anon key';
-       }
-       initAuthUI();
-     })();
- 
-     const $ = (sel) => document.querySelector(sel);
-    const status = {
-      auth: $('#auth-status'),
-      contact: $('#contact-status'),
-    };
+    function isSupabaseConfigValid(){
+      try{
+        const u = (window.__SUPABASE__ && window.__SUPABASE__.url) || '';
+        const a = (window.__SUPABASE__ && window.__SUPABASE__.anon) || '';
+        const okDomain = /^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(u) && !/your-project\.supabase\.co/i.test(u);
+        return !!(window.supabase && okDomain && a && a.length > 20);
+      }catch(e){ return false; }
+    }
+    (async () => {
+      try {
+        if (isSupabaseConfigValid()) {
+          supabase = window.supabase.createClient(window.__SUPABASE__.url, window.__SUPABASE__.anon);
+          try { const ui = document.getElementById('auth-status'); if (ui) ui.textContent = ''; } catch(e){}
+        } else {
+          const ui = document.getElementById('auth-status');
+          if (ui) ui.textContent = '未检测到项目配置：请先在主页右下角“配置 Supabase”保存 URL 与 anon key';
+        }
+        initAuthUI();
+      } catch (e) {
+        const ui = document.getElementById('auth-status');
+        if (ui) ui.textContent = 'Supabase 初始化失败：' + (e && e.message ? e.message : e);
+        console.error('Supabase init error', e);
+      }
+    })();
+
+    const $ = (sel) => document.querySelector(sel);
+    const status = { auth: $('#auth-status'), contact: $('#contact-status') };
 
     function setStatus(el, msg, kind = 'info') {
       el.textContent = msg;
@@ -201,27 +212,44 @@ create policy if not exists contacts_insert_own on public.contacts
           $('#user-info').textContent = `已登录：${session.user.email}`;
           $('#auth').classList.add('hidden');
           $('#authed').classList.remove('hidden');
+          // 填充当前用户ID与赋权SQL
+          const uid = session.user.id || '';
+          const uidEl = $('#my-user-id');
+          if (uidEl) uidEl.textContent = uid || '(未获取)';
+          const sqlEl = $('#grant-admin-sql');
+          if (sqlEl && uid) {
+            sqlEl.textContent = `insert into public.members (user_id, role)\nvalues ('${uid}', 'admin')\non conflict (user_id) do update set role = excluded.role;`;
+          }
+          // 绑定复制ID按钮
+          const copyBtn = $('#copy-user-id');
+          if (copyBtn) {
+            copyBtn.onclick = async () => {
+              try { await navigator.clipboard.writeText(uid); setStatus(status.auth, '用户ID已复制到剪贴板', 'success'); }
+              catch (e) { setStatus(status.auth, '复制失败：请手动选择并复制', 'error'); }
+            };
+          }
         } else {
           $('#user-info').textContent = '未登录';
           $('#auth').classList.remove('hidden');
           $('#authed').classList.add('hidden');
+          // 重置显示
+          const uidEl = $('#my-user-id');
+          if (uidEl) uidEl.textContent = '(未获取)';
+          const sqlEl = $('#grant-admin-sql');
+          if (sqlEl) {
+            sqlEl.textContent = `insert into public.members (user_id, role)\nvalues ('<ADMIN_UUID>', 'admin')\non conflict (user_id) do update set role = excluded.role;`;
+          }
         }
       }
 
-      // 监听认证状态变化
-      supabase.auth.onAuthStateChange((_event, _session) => {
-        refreshUser();
-      });
+      supabase.auth.onAuthStateChange((_event, _session) => { refreshUser(); });
       await refreshUser();
 
       // 登录
       $('#sign-in').addEventListener('click', async () => {
         const email = $('#email').value.trim();
         const password = $('#password').value;
-        if (!email || !password) {
-          setStatus(status.auth, '请填写邮箱与密码');
-          return;
-        }
+        if (!email || !password) { setStatus(status.auth, '请填写邮箱与密码'); return; }
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) setStatus(status.auth, `登录失败：${error.message}`, 'error');
         else setStatus(status.auth, '登录成功', 'success');
@@ -231,64 +259,42 @@ create policy if not exists contacts_insert_own on public.contacts
       $('#sign-up').addEventListener('click', async () => {
         const email = $('#email').value.trim();
         const password = $('#password').value;
-        if (!email || !password) {
-          setStatus(status.auth, '请填写邮箱与密码');
-          return;
-        }
+        if (!email || !password) { setStatus(status.auth, '请填写邮箱与密码'); return; }
         const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) { setStatus(status.auth, `注册失败：${error.message}`, 'error'); return; }
-        if (data && data.session) {
-          setStatus(status.auth, '注册成功，已自动登录（无需邮箱验证）', 'success');
-        } else {
-          setStatus(status.auth, '注册成功。若仍提示需验证，请在控制台关闭“启用邮箱验证”。', 'success');
-        }
+        if (data && data.session) { setStatus(status.auth, '注册成功，已自动登录（无需邮箱验证）', 'success'); }
+        else { setStatus(status.auth, '注册成功。若仍提示需验证，请在控制台关闭“启用邮箱验证”。', 'success'); }
       });
 
       // 退出
-       $('#sign-out').addEventListener('click', async () => {
-         await supabase.auth.signOut();
-         setStatus(status.auth, '已退出');
-       });
- 
-       // 检测邮箱验证配置（会创建一个临时测试用户）
-       $('#check-email-confirm').addEventListener('click', async () => {
-         const testEmail = `diagnostic+${Date.now()}@example.com`;
-         const testPassword = `DiagTest_${Math.random().toString(36).slice(2)}Aa1!`;
-         setStatus(status.auth, `正在检测：尝试注册 ${testEmail}`);
-         const { data, error } = await supabase.auth.signUp({ email: testEmail, password: testPassword });
-         if (error) { setStatus(status.auth, `检测失败：${error.message}`, 'error'); return; }
-         if (data && data.session) {
-           setStatus(status.auth, `检测结果：注册后已自动登录（邮箱验证已关闭）。测试账户：${testEmail}（已自动退出）`, 'success');
-           await supabase.auth.signOut();
-         } else {
-           setStatus(status.auth, '检测结果：注册未自动登录（邮箱验证仍开启）。请前往 Authentication -> Settings -> Email 关闭 Enable email confirmations。', 'error');
-         }
-       });
- 
-       // 联系表单提交
-       $('#contact-form').addEventListener('submit', async (e) => {
-         e.preventDefault();
-         const { data } = await supabase.auth.getSession();
-         const user = data.session?.user;
-         if (!user) {
-           setStatus(status.contact, '请先登录后再提交', 'error');
-           return;
-         }
-         const name = $('#name').value.trim();
-         const phone = $('#phone').value.trim();
-         const message = $('#message').value.trim();
-         if (!name || !message) {
-           setStatus(status.contact, '请填写姓名与留言', 'error');
-           return;
-         }
-         const { error } = await supabase.from('contacts').insert({ user_id: user.id, name, phone, message });
-         if (error) setStatus(status.contact, `提交失败：${error.message}`, 'error');
-         else {
-           setStatus(status.contact, '提交成功！', 'success');
-           $('#contact-form').reset();
-         }
-       });
-     }
-   </script>
+      $('#sign-out').addEventListener('click', async () => { await supabase.auth.signOut(); setStatus(status.auth, '已退出'); });
+
+      // 检测邮箱验证配置（会创建一个临时测试用户）
+      $('#check-email-confirm').addEventListener('click', async () => {
+        const testEmail = `diagnostic+${Date.now()}@example.com`;
+        const testPassword = `DiagTest_${Math.random().toString(36).slice(2)}Aa1!`;
+        setStatus(status.auth, `正在检测：尝试注册 ${testEmail}`);
+        const { data, error } = await supabase.auth.signUp({ email: testEmail, password: testPassword });
+        if (error) { setStatus(status.auth, `检测失败：${error.message}`, 'error'); return; }
+        if (data && data.session) { setStatus(status.auth, `检测结果：注册后已自动登录（邮箱验证已关闭）。测试账户：${testEmail}（已自动退出）`, 'success'); await supabase.auth.signOut(); }
+        else { setStatus(status.auth, '检测结果：注册未自动登录（邮箱验证仍开启）。请前往 Authentication -> Settings -> Email 关闭 Enable email confirmations。', 'error'); }
+      });
+
+      // 联系表单提交
+      $('#contact-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const { data } = await supabase.auth.getSession();
+        const user = data.session?.user;
+        if (!user) { setStatus(status.contact, '请先登录后再提交', 'error'); return; }
+        const name = $('#name').value.trim();
+        const phone = $('#phone').value.trim();
+        const message = $('#message').value.trim();
+        if (!name || !message) { setStatus(status.contact, '请填写姓名与留言', 'error'); return; }
+        const { error } = await supabase.from('contacts').insert({ user_id: user.id, name, phone, message });
+        if (error) setStatus(status.contact, `提交失败：${error.message}`, 'error');
+        else { setStatus(status.contact, '提交成功！', 'success'); $('#contact-form').reset(); }
+      });
+    }
+  </script>
 </body>
 </html>

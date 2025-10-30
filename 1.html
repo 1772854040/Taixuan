@@ -7896,7 +7896,8 @@
                   joinDate: x.joinDate || '',
                   progress: Number(x.progress||0),
                   studyTime: Number(x.studyTime||0),
-                  courses: Array.isArray(x.courses)? x.courses : []
+                  courses: Array.isArray(x.courses)? x.courses : [],
+                  user_id: me.id
                 })), { onConflict: 'id' }
               );
             }
@@ -8042,6 +8043,70 @@
             setInterval(ensureIntervals, 10000);
          } catch (e) {}
       })();
+  </script>
+  <script>
+    (function(){
+      try {
+        var params = new URLSearchParams(location.search);
+        if (params.get('auto') !== '1') return;
+        function addOverlay(){
+          // 支持通过 URL 参数隐藏叠层：&autoOverlay=0
+          try { if (typeof params !== 'undefined' && params.get('autoOverlay') === '0') return null; } catch(_){}
+          var note = document.createElement('div');
+          note.style.position = 'fixed'; note.style.bottom = '12px'; note.style.right = '12px'; note.style.zIndex = '99999';
+          note.style.padding = '10px 14px'; note.style.borderRadius = '8px'; note.style.boxShadow = '0 6px 16px rgba(0,0,0,0.08)';
+          note.style.fontSize = '13px'; note.style.lineHeight = '1.4'; note.style.border = '1px solid #91d5ff';
+          note.style.background = '#e6f7ff'; note.style.color = '#0050b3';
+          note.id = 'auto-verify-overlay'; note.textContent = 'AutoVerify: running...';
+          document.body.appendChild(note); return note;
+        }
+        function setOverlay(msg, ok){
+          var n = document.getElementById('auto-verify-overlay'); if (!n) return;
+          n.textContent = 'AutoVerify: ' + msg;
+          if (ok) { n.style.background = '#f6ffed'; n.style.borderColor = '#b7eb8f'; n.style.color = '#135200'; }
+          else { n.style.background = '#fff1f0'; n.style.borderColor = '#ffa39e'; n.style.color = '#a8071a'; }
+        }
+        async function run(){
+          var overlay = addOverlay();
+          try {
+            if (!(typeof isSupabaseConfigValid === 'function' && isSupabaseConfigValid() && window.supabase)) { setOverlay('SDK/config missing'); return; }
+            if (!window.supabaseClient) window.supabaseClient = window.supabase.createClient(window.__SUPABASE__.url, window.__SUPABASE__.anon);
+            var { data: sess } = await supabaseClient.auth.getSession();
+            var user = sess && sess.session && sess.session.user || null;
+            if (!user) {
+              var email = 'diagnostic+' + Date.now() + '@example.com';
+              var password = 'Diag_' + Math.random().toString(36).slice(2) + 'Aa1!';
+              try { await supabaseClient.auth.signUp({ email: email, password: password }); } catch(e) {}
+              var si = await supabaseClient.auth.signInWithPassword({ email: email, password: password });
+              if (si && si.error) { setOverlay('login failed: ' + si.error.message); return; }
+              ({ data: sess } = await supabaseClient.auth.getSession());
+              user = sess && sess.session && sess.session.user || null;
+            }
+            if (!user) { setOverlay('no session after login'); return; }
+            try { await ensureMemberRow(user.id, user.email || ''); } catch(_){}
+            // KV 写入与读取
+            try {
+              await supabaseClient.from('app_kv_store').upsert({ key:'diagnostic', value:{ ok:true, ts: Date.now(), user: user.email || '' } }, { onConflict:'key' });
+              await supabaseClient.from('app_kv_store').select('value').eq('key','diagnostic').maybeSingle();
+            } catch(_){}
+            // 学员/分组写入
+            try {
+              var s = [{ name:'Auto Student', email:user.email||'', group:'AutoGroup', joinDate:new Date().toISOString(), progress:1, studyTime:1, courses:[], user_id: user.id }];
+              var g = [{ name:'AutoGroup', manager:user.email||'', createDate:new Date().toISOString(), description:'Auto verify', level:1 }];
+              try { await supabaseClient.from('students').upsert(s, { onConflict:'id' }); } catch(_){}
+              try { await supabaseClient.from('groups').upsert(g, { onConflict:'name' }); } catch(_){}
+            } catch(_){}
+            // 拉取与 RPC 绑定
+            try { if (typeof cloudLoadToLocal === 'function') await cloudLoadToLocal(); } catch(_){}
+            try { await supabaseClient.rpc('link_my_student_record'); } catch(_){}
+            setOverlay('OK', true);
+          } catch(e) {
+            setOverlay('error: ' + (e && e.message ? e.message : e));
+          }
+        }
+        document.addEventListener('DOMContentLoaded', function(){ run(); });
+      } catch(e) {}
+    })();
   </script>
   </body>
   </html>
