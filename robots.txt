@@ -1,0 +1,5 @@
+# robots.txt for Taixuan static site on GitHub Pages
+User-agent: *
+Allow: /
+# If you later add sensitive paths, disallow them here, e.g.:
+# Disallow: /admin/
