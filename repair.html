@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>修复助手</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 20px; background: #f7f9fc; }
+    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 6px 16px rgba(0,0,0,0.06); padding: 16px; margin-bottom: 16px; }
+    .title { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+    .row { display: flex; flex-wrap: wrap; gap: 10px; }
+    button { background: #1677ff; color: #fff; border: none; border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+    button.secondary { background: #fff; color: #1f2937; border: 1px solid #d1d5db; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .ok { color: #135200; }
+    .warn { color: #ad4e00; }
+    .err { color: #a8071a; }
+    .kv, .db { font-size: 13px; color: #4b5563; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="title">环境状态</div>
+    <div id="env" class="mono">检查中…</div>
+    <div class="row" style="margin-top:8px;">
+      <button id="btnCheck" class="secondary" onclick="(window.showEnv||function(){alert('功能未就绪')})()">重新检测</button>
+      <button id="btnLogin" onclick="(window.loginOrCreate||function(){alert('功能未就绪')})()">登录/创建临时账号</button>
+      <button id="btnAcceptance" class="secondary" onclick="location.href='1.html?auto=1&autoOverlay=1&v=verify2'">打开验收页</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="title">一键自愈（客户端可执行）</div>
+    <div class="kv">执行内容：自愈 members、初始化常用 KV 并写诊断项、创建学员与分组、调用 RPC 绑定；完成后可转到验收页。</div>
+    <div class="row" style="margin-top:8px;">
+      <button id="btnFix" onclick="(window.runFix||function(){alert('功能未就绪')})()">执行一键自愈</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="title">数据库策略/触发器（复制到控制台执行）</div>
+    <div class="db">这些操作需要在 Supabase 控制台 SQL 编辑器执行。</div>
+    <div class="row" style="margin-top:8px;">
+      <button class="secondary" onclick="copySQL('students_policy')">复制：students 本人可读</button>
+      <button class="secondary" onclick="copySQL('kv_policy')">复制：KV 匿名可读</button>
+      <button class="secondary" onclick="copySQL('kv_trigger')">复制：KV updated_by 触发器</button>
+      <button class="secondary" onclick="copySQL('admin')">复制：管理员提升（当前会话）</button>
+      <button class="secondary" onclick="copyRootFixSQL()">复制：ALL（全量修复）</button>
+      <script src="./supabase.config.js?v=cfg1"></script>
+      <script src="./assets/supabase.js?v=local-min-2"></script>
+      <script src="./repair.status.js?v=diag2"></script>
+      <script>
+      // 复制辅助：优先 Clipboard API，失败回退到 execCommand，再回退到下载或新窗口
+      function robustCopy(text, filename){
+        try{
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(function(){
+              alert('SQL 已复制到剪贴板，请到 Supabase 控制台执行。');
+            }).catch(function(){
+              try{
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.focus();
+                ta.select();
+                const ok = document.execCommand('copy');
+                document.body.removeChild(ta);
+                if (ok){ alert('SQL 已复制到剪贴板（回退方案）。'); return; }
+              }catch(_){/* ignore */}
+              try{
+                const blob = new Blob([text], { type:'text/plain;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = filename || 'supabase_fix.sql';
+                document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(url); a.remove(); }, 500);
+                alert('剪贴板不可用，已自动下载 SQL 文件。');
+              }catch(_){
+                try{
+                  const w = window.open('about:blank');
+                  if (w){ w.document.write('<pre>'+ text.replace(/</g,'&lt;').replace(/>/g,'&gt;') +'</pre>'); w.document.close(); }
+                  alert('剪贴板不可用，已在新窗口展示 SQL，请手动复制。');
+                }catch(__){ alert('复制失败，请手动复制下方弹窗文本。\n' + text); }
+              }
+            });
+            return;
+          }
+        }catch(_){/* ignore */}
+        // 无 Clipboard API，直接尝试回退方案
+        try{
+          const ta = document.createElement('textarea');
+          ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+          document.body.appendChild(ta); ta.focus(); ta.select();
+          const ok = document.execCommand('copy');
+          document.body.removeChild(ta);
+          if (ok){ alert('SQL 已复制到剪贴板。'); return; }
+        }catch(_){/* ignore */}
+        try{
+          const blob = new Blob([text], { type:'text/plain;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = filename || 'supabase_fix.sql';
+          document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(url); a.remove(); }, 500);
+          alert('剪贴板不可用，已自动下载 SQL 文件。');
+        }catch(_){
+          try{
+            const w = window.open('about:blank');
+            if (w){ w.document.write('<pre>'+ text.replace(/</g,'&lt;').replace(/>/g,'&gt;') +'</pre>'); w.document.close(); }
+            alert('剪贴板不可用，已在新窗口展示 SQL，请手动复制。');
+          }catch(__){ alert('复制失败，请手动复制下方弹窗文本。\n' + text); }
+        }
+      }
+      // 全局：根治修复 SQL 复制函数（正确放置到脚本中）
+      window.copyRootFixSQL = function(){
+        const sql = `
+        -- app_kv_store 表与 RLS
+        create table if not exists public.app_kv_store (
+          key text primary key,
+          value jsonb not null default '[]'::jsonb,
+          updated_at timestamptz not null default now(),
+          updated_by uuid
+        );
+        alter table public.app_kv_store enable row level security;
+        alter table public.app_kv_store force row level security;
+        
+        -- 安全触发器：稳健写入 updated_by（容错 UUID 转换）
+        create or replace function public.set_kv_updated_by()
+        returns trigger
+        language plpgsql
+        security definer
+        set search_path = public
+        as $$
+        declare v_sub text;
+        begin
+          v_sub := null;
+          if current_setting('request.jwt.claims', true) is not null then
+            v_sub := jsonb_extract_path_text(current_setting('request.jwt.claims', true)::jsonb, 'sub');
+          end if;
+          begin
+            new.updated_by := v_sub::uuid;
+          exception when others then
+            new.updated_by := null;
+          end;
+          new.updated_at := now();
+          return new;
+        end;
+        $$;
+        
+        drop trigger if exists app_kv_set_updated_by on public.app_kv_store;
+        create trigger app_kv_set_updated_by
+          before insert or update on public.app_kv_store
+          for each row execute function public.set_kv_updated_by();
+        
+        -- 公共 KV 白名单/前缀识别函数
+        create or replace function public.is_kv_public_readable(key text)
+        returns boolean
+        language sql
+        as $$
+          select (key like 'taixuanPublic%' or key in ('taixuanVipCodes','taixuanPublicClasses','taixuanMessages'));
+        $$;
+        
+        -- 清理旧策略并重建（匿名只读、认证读全量、认证写全量）
+        drop policy if exists "kv_anon_public_read" on public.app_kv_store;
+        drop policy if exists "kv_auth_read_all" on public.app_kv_store;
+        drop policy if exists "kv_user_insert_any_auth" on public.app_kv_store;
+        drop policy if exists "kv_user_update_any_auth" on public.app_kv_store;
+        
+        create policy "kv_anon_public_read"
+          on public.app_kv_store
+          for select
+          to anon
+          using (public.is_kv_public_readable(key));
+        
+        create policy "kv_auth_read_all"
+          on public.app_kv_store
+          for select
+          to authenticated
+          using (true);
+        
+        create policy "kv_user_insert_any_auth"
+          on public.app_kv_store
+          for insert
+          to authenticated
+          with check (true);
+        
+        create policy "kv_user_update_any_auth"
+          on public.app_kv_store
+          for update
+          to authenticated
+          using (true)
+          with check (true);
+        
+        -- students：补列 + 启用 RLS + 本人读/写策略
+        alter table if exists public.students
+          add column if not exists user_id uuid references auth.users(id) on delete set null;
+        alter table public.students enable row level security;
+        
+        -- 清理旧策略
+        drop policy if exists students_select_self_or_admin on public.students;
+        drop policy if exists students_insert_self on public.students;
+        drop policy if exists students_update_self on public.students;
+        
+        -- 本人可读或管理员可读
+        create policy students_select_self_or_admin
+          on public.students
+          for select
+          to authenticated
+          using (
+            user_id = auth.uid() or exists(
+              select 1 from public.members m where m.user_id = auth.uid() and m.role = 'admin'
+            )
+          );
+        
+        -- 本人插入
+        create policy students_insert_self
+          on public.students
+          for insert
+          to authenticated
+          with check (user_id = auth.uid());
+        
+        -- 本人更新
+        create policy students_update_self
+          on public.students
+          for update
+          to authenticated
+          using (user_id = auth.uid())
+          with check (user_id = auth.uid());
+        
+        -- RPC：绑定本人学员记录（从 JWT 取 email）
+         drop function if exists public.link_my_student_record();
+         create or replace function public.link_my_student_record()
+           returns integer
+           language plpgsql
+           security definer
+           set search_path = public
+           as $$
+           declare
+             uid uuid := auth.uid();
+             email text;
+             updated integer := 0;
+           begin
+             if uid is null then
+               return 0;
+             end if;
+
+             select u.email into email
+             from auth.users u
+             where u.id = uid;
+
+             if email is null then
+               return 0;
+             end if;
+
+             update public.students s
+             set user_id = uid
+             where lower(s.email) = lower(email)
+               and (s.user_id is distinct from uid);
+
+             get diagnostics updated = row_count;
+             return updated;
+           end;
+           $$;
+          grant execute on function public.link_my_student_record() to authenticated;
+ 
+           -- 新增 RPC：确保本人学员记录存在（若不存在则插入）
+           drop function if exists public.ensure_my_student_row();
+           create or replace function public.ensure_my_student_row()
+             returns integer
+             language plpgsql
+             security definer
+             set search_path = public
+             as $$
+             declare
+               v_uid uuid := auth.uid();
+               v_email text;
+               v_count integer := 0;
+             begin
+               if v_uid is null then
+                 return 0;
+               end if;
+               select u.email into v_email from auth.users u where u.id = v_uid;
+               if v_email is null then
+                 return 0;
+               end if;
+               -- 绑定已有记录
+               update public.students s
+                 set user_id = v_uid
+                 where lower(s.email) = lower(v_email)
+                   and (s.user_id is distinct from v_uid);
+               get diagnostics v_count = row_count;
+               -- 若不存在该邮箱的记录，则插入仅含最小字段集，避免 schema 差异（如无 joinDate 等列）
+               if not exists(select 1 from public.students where lower(email) = lower(v_email)) then
+                 begin
+                   insert into public.students(email, user_id) values(v_email, v_uid);
+                   v_count := v_count + 1;
+                 exception when others then
+                   -- 若因约束需要 id，尝试补一个时间戳型 id（适配整数/文本 id 场景）
+                   begin
+                     insert into public.students(id, email, user_id)
+                     values((extract(epoch from now())*1000)::bigint, v_email, v_uid);
+                     v_count := v_count + 1;
+                   exception when others then
+                     -- 忽略插入失败，返回已更新的数量
+                   end;
+                 end;
+               end if;
+               return v_count;
+             end;
+             $$;
+            grant execute on function public.ensure_my_student_row() to authenticated;
+          -- 常用 KV 键初始化（幂等）
+          insert into public.app_kv_store(key, value) values
+            ('taixuanCourses','[]'::jsonb),
+            ('taixuanPublicClasses','[]'::jsonb),
+            ('taixuanInviteCodes','[]'::jsonb),
+            ('taixuanVipCodes','[]'::jsonb),
+            ('taixuanDiscountCodes','[]'::jsonb),
+            ('taixuanAnnouncements','[]'::jsonb),
+            ('taixuanMessages','[]'::jsonb),
+            ('taixuanMembers','[]'::jsonb),
+            ('taixuanMusicSettings','[]'::jsonb),
+            ('vipDesiredPlan','[]'::jsonb),
+            ('taixuanInviteInit','[]'::jsonb)
+          on conflict (key) do update set value = excluded.value;
+          `;
+          robustCopy(sql, 'root_fix.sql');
+        };
+    // 安全内联：环境检测/登录/一键自愈（当外部函数未注入时使用）
+    window.showEnv = function(){
+      var el = document.getElementById('env');
+      try {
+        var url = (window.__SUPABASE__ && window.__SUPABASE__.url) || '';
+        var anon = (window.__SUPABASE__ && window.__SUPABASE__.anon) || '';
+        var okDomain = /^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url) && !/your-project\.supabase\.co/i.test(url);
+        var sdkReady = !!window.supabase;
+        var cfgOk = sdkReady && okDomain && anon && anon.length > 20;
+        el.textContent = cfgOk ? 'Supabase 配置就绪 ✅' : 'Supabase 未就绪 ❌（检查 supabase.config.js 与 assets/supabase.js）';
+        el.className = cfgOk ? 'ok mono' : 'err mono';
+      } catch(e){
+        el.textContent = '检测失败：' + (e && e.message ? e.message : String(e));
+        el.className = 'err mono';
+      }
+    };
+    
+    window.loginOrCreate = async function(){
+      var el = document.getElementById('env');
+      try {
+        var c = window.supabase.createClient(window.__SUPABASE__.url, window.__SUPABASE__.anon);
+        var sessObj = await c.auth.getSession();
+        var user = (sessObj && sessObj.data && sessObj.data.session && sessObj.data.session.user) || null;
+        if (!user){
+          var email = 'diagnostic+' + Date.now() + '@example.com';
+          var password = 'Diag_' + Math.random().toString(36).slice(2) + 'Aa1!';
+          try { await c.auth.signUp({ email, password }); } catch(_){ }
+          var si = await c.auth.signInWithPassword({ email, password });
+          if (si && si.error) throw new Error(si.error.message);
+          sessObj = await c.auth.getSession();
+          user = (sessObj && sessObj.data && sessObj.data.session && sessObj.data.session.user) || null;
+        }
+        // 自愈 members
+        try {
+          var existing = await c.from('members').select('user_id').eq('user_id', user.id).limit(1).maybeSingle();
+          if (!existing || !existing.data) {
+            await c.from('members').insert({ user_id: user.id, email: user.email || '', role: 'user' });
+          }
+        } catch(_){ }
+        el.textContent = '登录就绪 ✅ 用户：' + ((user && (user.email || user.id)) || '');
+        el.className = 'ok mono';
+      } catch(e){
+        el.textContent = '登录失败：' + (e && e.message ? e.message : String(e));
+        el.className = 'err mono';
+      }
+    };
+    
+    window.runFix = async function(){
+      var el = document.getElementById('env');
+      try {
+        var c = window.supabase.createClient(window.__SUPABASE__.url, window.__SUPABASE__.anon);
+        var sessObj = await c.auth.getSession();
+        var user = (sessObj && sessObj.data && sessObj.data.session && sessObj.data.session.user) || null;
+        if (!user){
+          var email = 'diagnostic+' + Date.now() + '@example.com';
+          var password = 'Diag_' + Math.random().toString(36).slice(2) + 'Aa1!';
+          try { await c.auth.signUp({ email, password }); } catch(_){ }
+          var si = await c.auth.signInWithPassword({ email, password });
+          if (si && si.error) throw new Error(si.error.message);
+          sessObj = await c.auth.getSession();
+          user = (sessObj && sessObj.data && sessObj.data.session && sessObj.data.session.user) || null;
+        }
+        // 自愈 members
+        try {
+          var existing = await c.from('members').select('user_id').eq('user_id', user.id).limit(1).maybeSingle();
+          if (!existing || !existing.data) {
+            await c.from('members').insert({ user_id: user.id, email: user.email || '', role: 'user' });
+          }
+        } catch(_){ }
+        // 初始化常用 KV
+        try {
+          await c.from('app_kv_store').upsert({ key: 'taixuanInviteInit', value: [] }, { onConflict: 'key' });
+          await c.from('app_kv_store').upsert({ key: 'taixuanMembers', value: [] }, { onConflict: 'key' });
+        } catch(_){ }
+        // 调用 RPC 绑定本人学员记录
+        try { await c.rpc('link_my_student_record'); } catch(_){ }
+        try { await c.rpc('ensure_my_student_row'); } catch(_){ }
+        el.textContent = '一键自愈完成 ✅';
+        el.className = 'ok mono';
+      } catch(e){
+        el.textContent = '自愈失败：' + (e && e.message ? e.message : String(e));
+        el.className = 'err mono';
+      }
+    };
+    // 分板块复制 SQL（补全缺失的函数）
+    function copySQL(kind){
+      let sql = '';
+      switch(kind){
+        case 'students_policy':
+          sql = `
+          alter table if exists public.students
+            add column if not exists user_id uuid references auth.users(id) on delete set null;
+          alter table public.students enable row level security;
+          drop policy if exists students_select_self_or_admin on public.students;
+          drop policy if exists students_insert_self on public.students;
+          drop policy if exists students_update_self on public.students;
+          create policy students_select_self_or_admin on public.students for select to authenticated using (
+            user_id = auth.uid() or exists(select 1 from public.members m where m.user_id = auth.uid() and m.role = 'admin')
+          );
+          create policy students_insert_self on public.students for insert to authenticated with check (user_id = auth.uid());
+          create policy students_update_self on public.students for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+          `;
+          break;
+        case 'kv_policy':
+          sql = `
+          create or replace function public.is_kv_public_readable(key text) returns boolean language sql as $$
+            select (key like 'taixuanPublic%' or key in ('taixuanVipCodes','taixuanPublicClasses','taixuanMessages'));
+          $$;
+          drop policy if exists "kv_anon_public_read" on public.app_kv_store;
+          drop policy if exists "kv_auth_read_all" on public.app_kv_store;
+          create policy "kv_anon_public_read" on public.app_kv_store for select to anon using (public.is_kv_public_readable(key));
+          create policy "kv_auth_read_all" on public.app_kv_store for select to authenticated using (true);
+          `;
+          break;
+        case 'kv_trigger':
+          sql = `
+          create or replace function public.set_kv_updated_by() returns trigger language plpgsql security definer set search_path = public as $$
+          declare v_sub text; begin
+            v_sub := null;
+            if current_setting('request.jwt.claims', true) is not null then
+              v_sub := jsonb_extract_path_text(current_setting('request.jwt.claims', true)::jsonb, 'sub');
+            end if;
+            begin new.updated_by := v_sub::uuid; exception when others then new.updated_by := null; end;
+            new.updated_at := now(); return new; end; $$;
+          drop trigger if exists app_kv_set_updated_by on public.app_kv_store;
+          create trigger app_kv_set_updated_by before insert or update on public.app_kv_store for each row execute function public.set_kv_updated_by();
+          `;
+          break;
+        case 'admin':
+          sql = `
+          -- 将指定用户提升为管理员：请替换 <ADMIN_UUID>
+          insert into public.members(user_id, role) values('<ADMIN_UUID>', 'admin')
+          on conflict(user_id) do update set role = excluded.role;
+          `;
+          break;
+        default:
+          sql = '';
+      }
+      if (!sql){ alert('未找到对应 SQL'); return; }
+      robustCopy(sql, (kind || 'sql') + '.sql');
+    }
+      </script>
+
+      <!-- 快速自测（页面内验证） -->
+      <div class="card">
+        <div class="title">快速自测（页面内验证）</div>
+        <div>验证三项：匿名 KV 读取、KV 写回 updated_by、学员归属 user_id。</div>
+        <ul style="list-style:none;padding-left:0;">
+          <li>匿名 KV 读取：<span id="diag_anon" class="mono">待测</span></li>
+          <li>KV 写回(updated_by)：<span id="diag_upd" class="mono">待测</span></li>
+          <li>学员归属(user_id)：<span id="diag_stu" class="mono">待测</span></li>
+        </ul>
+        <div class="row"><button id="btnRunDiag" onclick="(window.runDiagnostics||function(){alert('功能未就绪')})()">运行自测</button></div>
+      </div>
+      <script>
+      // 自测兜底：若外部 repair.status.js 未能导出 runDiagnostics，则使用本地实现
+      (function(){
+        if (typeof window.runDiagnostics === 'function') return;
+        function setStatus(el, res){ el.textContent = (res.ok ? '通过 ✅ ' : '失败 ❌ ') + (res.msg || ''); el.className = res.ok ? 'ok' : 'err'; }
+        function isCfgOk(){
+          try{
+            var u = (window.__SUPABASE__ && window.__SUPABASE__.url) || '';
+            var a = (window.__SUPABASE__ && window.__SUPABASE__.anon) || '';
+            var okDomain = /^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(u) && !/your-project\.supabase\.co/i.test(u);
+            return !!(window.supabase && okDomain && a && a.length > 20);
+          }catch(e){ return false; }
+        }
+        async function getClient(){ if(!isCfgOk()) throw new Error('Supabase 未就绪'); return window.supabase.createClient(window.__SUPABASE__.url, window.__SUPABASE__.anon); }
+        async function ensureLogin(){
+          var c = await getClient();
+          var sessObj = await c.auth.getSession();
+          var user = (sessObj && sessObj.data && sessObj.data.session && sessObj.data.session.user) || null;
+          if(!user){
+            var email = 'diagnostic+' + Date.now() + '@example.com';
+            var password = 'Diag_' + Math.random().toString(36).slice(2) + 'Aa1!';
+            try { await c.auth.signUp({ email, password }); } catch(_){ }
+            var si = await c.auth.signInWithPassword({ email, password });
+            if (si && si.error) throw new Error(si.error.message);
+            sessObj = await c.auth.getSession();
+            user = (sessObj && sessObj.data && sessObj.data.session && sessObj.data.session.user) || null;
+          }
+          return { c, user };
+        }
+        async function refreshIfExpired(c){ try { await c.auth.refreshSession(); } catch(_){} return c; }
+        async function testAnonKVRead(){
+          if (!isCfgOk()) return { ok:false, msg:'配置未就绪' };
+          // 改为匿名请求，不清空全局会话
+          try{
+            var url = (window.__SUPABASE__ && window.__SUPABASE__.url || '').replace(/\/$/, '');
+            var anon = (window.__SUPABASE__ && window.__SUPABASE__.anon) || '';
+            var p = new URLSearchParams();
+            p.append('select','key');
+            p.append('key','eq.taixuanVipCodes');
+            p.append('limit','1');
+            var r = await fetch(url + '/rest/v1/app_kv_store?' + p.toString(), { headers: { 'apikey': anon, 'Content-Type':'application/json' } });
+            var j = null; try{ j = await r.json(); }catch(_){}
+            if (!r.ok) return { ok:false, msg: (j && j.message) || r.statusText || '读取失败' };
+            return { ok:true, msg:'可读取' };
+          }catch(e){ return { ok:false, msg: e && e.message ? e.message : String(e) }; }
+        }
+        async function testKVUpdatedBy(){
+          try{
+            var res = await ensureLogin(); var c = res.c, user = res.user;
+            var key = 'diag_updated_by_' + Date.now();
+            var e1Obj = await c.from('app_kv_store').upsert({ key, value: { ts: Date.now() }, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+            var e1 = e1Obj && e1Obj.error || null;
+            if (e1 && /JWT expired/i.test(e1.message)){ await refreshIfExpired(c); e1Obj = await c.from('app_kv_store').upsert({ key, value: { ts: Date.now() }, updated_at: new Date().toISOString() }, { onConflict: 'key' }); e1 = e1Obj && e1Obj.error || null; }
+            if (e1) return { ok:false, msg:'写入失败：' + e1.message };
+            var rd = await c.from('app_kv_store').select('updated_by').eq('key', key).limit(1).maybeSingle();
+            if (rd && rd.error) return { ok:false, msg:'读取失败：' + rd.error.message };
+            var ok = !!(rd && rd.data && rd.data.updated_by && rd.data.updated_by === user.id);
+            return { ok, msg: ok ? ('updated_by=' + rd.data.updated_by) : ('updated_by 不匹配或为空') };
+          }catch(e){ return { ok:false, msg: e && e.message ? e.message : String(e) }; }
+        }
+        async function testStudentOwnership(){
+          try{
+            var res = await ensureLogin(); var c = res.c, user = res.user;
+            var email = (user.email||'').trim();
+            var payloadMin = { email: email, user_id: user.id };
+            var e1Obj = await c.from('students').upsert(payloadMin);
+            var e1 = e1Obj && e1Obj.error || null;
+            if (e1 && /JWT expired/i.test(e1.message)){ await refreshIfExpired(c); e1Obj = await c.from('students').upsert(payloadMin); e1 = e1Obj && e1Obj.error || null; }
+            try{ await c.rpc('link_my_student_record'); }catch(e){ if (/JWT expired/i.test(e.message)) { await refreshIfExpired(c); try{ await c.rpc('link_my_student_record'); }catch(_){} } }
+            try{ await c.rpc('ensure_my_student_row'); }catch(e){ if (/JWT expired/i.test(e.message)) { await refreshIfExpired(c); try{ await c.rpc('ensure_my_student_row'); }catch(_){} } }
+            if (e1) return { ok:false, msg:'写入失败：' + e1.message };
+            var q = await c.from('students').select('user_id').eq('user_id', user.id).limit(1).maybeSingle();
+            if (q && q.error && /JWT expired/i.test(q.error.message)){ await refreshIfExpired(c); q = await c.from('students').select('user_id').eq('user_id', user.id).limit(1).maybeSingle(); }
+            var ok = !!(q && q.data && q.data.user_id);
+            if (!ok){
+              var byMail = await c.from('students').select('email,user_id').ilike('email', '%' + email + '%');
+              if (byMail && byMail.error && /JWT expired/i.test(byMail.error.message)){ await refreshIfExpired(c); byMail = await c.from('students').select('email,user_id').ilike('email', '%' + email + '%'); }
+              var rows = Array.isArray(byMail && byMail.data) ? byMail.data : [];
+              var exactRows = rows.filter(function(r){ return (r.email||'').toLowerCase() === email.toLowerCase(); });
+              var someHasUid = exactRows.some(function(r){ return r.user_id && String(r.user_id).length > 0; });
+              if (exactRows.length > 0 && !someHasUid){
+                try{ await c.rpc('link_my_student_record'); await c.rpc('ensure_my_student_row'); }catch(_){}
+                byMail = await c.from('students').select('email,user_id').ilike('email', '%' + email + '%');
+                rows = Array.isArray(byMail && byMail.data) ? byMail.data : [];
+                exactRows = rows.filter(function(r){ return (r.email||'').toLowerCase() === email.toLowerCase(); });
+                someHasUid = exactRows.some(function(r){ return r.user_id && String(r.user_id).length > 0; });
+              }
+              ok = someHasUid || ok;
+              if (ok){ return { ok:true, msg:'读取到本人记录（按邮箱或 user_id）' }; }
+              if (exactRows.length > 0){ return { ok:false, msg:'命中邮箱但未绑定 user_id（需执行策略或RPC）' }; }
+            }
+            return { ok: ok, msg: ok ? '读取到本人记录' : ('无本人记录（uid=' + user.id + ', email=' + email + ')') };
+          }catch(e){ return { ok:false, msg: e && e.message ? e.message : String(e) }; }
+        }
+        async function runDiagnostics(){
+          var elemAnon = document.getElementById('diag_anon');
+          var elemUpd = document.getElementById('diag_upd');
+          var elemStu = document.getElementById('diag_stu');
+          if (!elemAnon || !elemUpd || !elemStu) return alert('页面元素缺失');
+          elemAnon.textContent = '检测中…'; elemUpd.textContent = '检测中…'; elemStu.textContent = '检测中…';
+          try { setStatus(elemAnon, await testAnonKVRead()); } catch(e){ setStatus(elemAnon, { ok:false, msg:String(e) }); }
+          try { setStatus(elemUpd, await testKVUpdatedBy()); } catch(e){ setStatus(elemUpd, { ok:false, msg:String(e) }); }
+          try { setStatus(elemStu, await testStudentOwnership()); } catch(e){ setStatus(elemStu, { ok:false, msg:String(e) }); }
+        }
+        window.runDiagnostics = runDiagnostics;
+      })();
+      </script>
+
+      <script>
+       // 兜底绑定：不依赖外部注入顺序，确保按钮可点击
+       (function(){
+         function safeCall(fn){ try { if (typeof fn === 'function') return fn(); else alert('功能未就绪'); } catch(e){ alert('执行失败：' + (e && e.message ? e.message : String(e))); } }
+         var b1 = document.getElementById('btnCheck'); if (b1) b1.addEventListener('click', function(){ safeCall(window.showEnv); });
+         var b2 = document.getElementById('btnLogin'); if (b2) b2.addEventListener('click', function(){ safeCall(window.loginOrCreate); });
+         var b3 = document.getElementById('btnFix'); if (b3) b3.addEventListener('click', function(){ safeCall(window.runFix); });
+         var b4 = document.getElementById('btnRunDiag'); if (b4) b4.addEventListener('click', function(){ safeCall(window.runDiagnostics); });
+       })();
+       </script>
+</body>
+</html>

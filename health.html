@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>系统健康检查</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 20px; background: #f7f9fc; }
+    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 6px 16px rgba(0,0,0,0.06); padding: 16px; margin-bottom: 16px; }
+    .title { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+    .row { display: flex; flex-wrap: wrap; gap: 10px; }
+    button { background: #1677ff; color: #fff; border: none; border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+    button.secondary { background: #fff; color: #1f2937; border: 1px solid #d1d5db; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .ok { color: #135200; }
+    .warn { color: #ad4e00; }
+    .err { color: #a8071a; }
+    .kv { font-size: 13px; color: #4b5563; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="title">健康检查概览</div>
+    <div class="mono" id="summary">尚未运行</div>
+    <div class="row" style="margin-top:8px;">
+      <button id="btnRun">立即运行</button>
+      <button class="secondary" onclick="location.href='repair.html'">打开修复页</button>
+      <button class="secondary" onclick="location.href='1.html?auto=1&autoOverlay=1'">打开验收页</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="title">配置状态</div>
+    <div class="mono" id="cfg">检查中…</div>
+  </div>
+
+  <div class="card">
+    <div class="title">匿名 KV 读取</div>
+    <div class="mono" id="diag_anon">待测</div>
+  </div>
+
+  <div class="card">
+    <div class="title">KV 写回 updated_by</div>
+    <div class="mono" id="diag_upd">待测</div>
+  </div>
+
+  <div class="card">
+    <div class="title">学员归属 user_id</div>
+    <div class="mono" id="diag_stu">待测</div>
+  </div>
+
+  <script src="./supabase.config.js?v=cfg1"></script>
+  <script src="./assets/supabase.js?v=local-min-1"></script>
+  <script src="./health.status.js?v=hc1"></script>
+</body>
+</html>

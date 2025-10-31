@@ -1,0 +1,6 @@
+# OS / editor artifacts
+.DS_Store
+Thumbs.db
+
+# Node-related (if ever used)
+node_modules/

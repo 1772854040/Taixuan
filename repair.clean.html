@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>修复助手（干净副本）</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 20px; background: #f7f9fc; }
+    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 6px 16px rgba(0,0,0,0.06); padding: 16px; margin-bottom: 16px; }
+    .title { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+    .row { display: flex; flex-wrap: wrap; gap: 10px; }
+    button { background: #1677ff; color: #fff; border: none; border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+    button.secondary { background: #fff; color: #1f2937; border: 1px solid #d1d5db; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .ok { color: #135200; }
+    .warn { color: #ad4e00; }
+    .err { color: #a8071a; }
+    .kv, .db { font-size: 13px; color: #4b5563; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="title">环境状态</div>
+    <div id="env" class="mono">检查中…</div>
+    <div class="row" style="margin-top:8px;">
+      <button id="btnCheck" class="secondary">重新检测</button>
+      <button id="btnLogin">登录/创建临时账号</button>
+      <button id="btnAcceptance" class="secondary" onclick="location.href='1.html?auto=1&autoOverlay=1&v=verify2'">打开验收页</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="title">一键自愈（客户端可执行）</div>
+    <div class="kv">执行内容：自愈 members、初始化常用 KV 并写诊断项、创建学员与分组、调用 RPC 绑定；完成后可转到验收页。</div>
+    <div class="row" style="margin-top:8px;">
+      <button id="btnFix">执行一键自愈</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="title">数据库策略/触发器（复制到控制台执行）</div>
+    <div class="db">这些操作需要在 Supabase 控制台 SQL 编辑器执行。</div>
+    <div class="row" style="margin-top:8px;">
+      <button class="secondary" onclick="copySQL('students_policy')">复制：students 本人可读</button>
+      <button class="secondary" onclick="copySQL('kv_policy')">复制：KV 匿名可读</button>
+      <button class="secondary" onclick="copySQL('kv_trigger')">复制：KV updated_by 触发器</button>
+      <button class="secondary" onclick="copySQL('admin')">复制：管理员提升（当前会话）</button>
+      <button class="secondary" onclick="copyRootFixSQL()">复制：ALL（全量修复）</button>
+      <script src="./supabase.config.js?v=cfg1"></script>
+      <script src="./assets/supabase.js?v=local-min-1"></script>
+      <script src="./repair.status.js?v=diag2"></script>
+      <script>
+      function robustCopy(text, filename){
+        try{
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(function(){
+              alert('SQL 已复制到剪贴板，请到 Supabase 控制台执行。');
+            }).catch(function(){
+              try{
+                const ta = document.createElement('textarea');
+                ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+                document.body.appendChild(ta); ta.focus(); ta.select();
+                const ok = document.execCommand('copy');
+                document.body.removeChild(ta);
+                if (ok){ alert('SQL 已复制到剪贴板（回退方案）。'); return; }
+              }catch(_){}
+              try{
+                const blob = new Blob([text], { type:'text/plain;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = filename || 'supabase_fix.sql';
+                document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(url); a.remove(); }, 500);
+                alert('剪贴板不可用，已自动下载 SQL 文件。');
+              }catch(_){
+                try{
+                  const w = window.open('about:blank');
+                  if (w){ w.document.write('<pre>'+ text.replace(/</g,'&lt;').replace(/>/g,'&gt;') +'</pre>'); w.document.close(); }
+                  alert('剪贴板不可用，已在新窗口展示 SQL，请手动复制。');
+                }catch(__){ alert('复制失败，请手动复制下方弹窗文本。\n' + text); }
+              }
+            });
+            return;
+          }
+        }catch(_){}
+        try{
+          const ta = document.createElement('textarea');
+          ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+          document.body.appendChild(ta); ta.focus(); ta.select();
+          const ok = document.execCommand('copy');
+          document.body.removeChild(ta);
+          if (ok){ alert('SQL 已复制到剪贴板。'); return; }
+        }catch(_){}
+        try{
+          const blob = new Blob([text], { type:'text/plain;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a'); a.href = url; a.download = filename || 'supabase_fix.sql';
+          document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(url); a.remove(); }, 500);
+          alert('剪贴板不可用，已自动下载 SQL 文件。');
+        }catch(_){
+          try{
+            const w = window.open('about:blank');
+            if (w){ w.document.write('<pre>'+ text.replace(/</g,'&lt;').replace(/>/g,'&gt;') +'</pre>'); w.document.close(); }
+            alert('剪贴板不可用，已在新窗口展示 SQL，请手动复制。');
+          }catch(__){ alert('复制失败，请手动复制下方弹窗文本。\n' + text); }
+        }
+      }
+      window.copyRootFixSQL = function(){
+        const sql = `
+        alter table if exists public.students
+          add column if not exists user_id uuid references auth.users(id) on delete set null;
+        alter table public.students enable row level security;
+        drop policy if exists students_select_self_or_admin on public.students;
+        drop policy if exists students_insert_self on public.students;
+        drop policy if exists students_update_self on public.students;
+        create policy students_select_self_or_admin on public.students for select to authenticated using (
+          user_id = auth.uid() or exists(select 1 from public.members m where m.user_id = auth.uid() and m.role = 'admin')
+        );
+        create policy students_insert_self on public.students for insert to authenticated with check (user_id = auth.uid());
+        create policy students_update_self on public.students for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+        drop function if exists public.link_my_student_record();
+        create or replace function public.link_my_student_record()
+          returns integer language plpgsql security definer set search_path = public as $$
+        declare uid uuid := auth.uid(); email text; updated integer := 0; begin
+          if uid is null then return 0; end if;
+          select u.email into email from auth.users u where u.id = uid;
+          if email is null then return 0; end if;
+          update public.students s set user_id = uid where lower(s.email) = lower(email) and (s.user_id is distinct from uid);
+          get diagnostics updated = row_count; return updated; end; $$;
+        grant execute on function public.link_my_student_record() to authenticated;
+
+        drop function if exists public.ensure_my_student_row();
+        create or replace function public.ensure_my_student_row()
+          returns integer language plpgsql security definer set search_path = public as $$
+        declare v_uid uuid := auth.uid(); v_email text; v_count integer := 0; begin
+          if v_uid is null then return 0; end if;
+          select u.email into v_email from auth.users u where u.id = v_uid;
+          if v_email is null then return 0; end if;
+          update public.students s set user_id = v_uid where lower(s.email) = lower(v_email) and (s.user_id is distinct from v_uid);
+          get diagnostics v_count = row_count;
+          if not exists(select 1 from public.students where lower(email) = lower(v_email)) then
+            begin
+              insert into public.students(email, user_id) values(v_email, v_uid);
+              v_count := v_count + 1;
+            exception when others then
+              begin
+                insert into public.students(id, email, user_id)
+                values((extract(epoch from now())*1000)::bigint, v_email, v_uid);
+                v_count := v_count + 1;
+              exception when others then null; end;
+            end;
+          end if;
+          return v_count; end; $$;
+        grant execute on function public.ensure_my_student_row() to authenticated;
+        `;
+        robustCopy(sql, 'root_fix.sql');
+      };
+
+      function copySQL(kind){
+        let sql = '';
+        switch(kind){
+          case 'students_policy':
+            sql = `
+            alter table if exists public.students
+              add column if not exists user_id uuid references auth.users(id) on delete set null;
+            alter table public.students enable row level security;
+            drop policy if exists students_select_self_or_admin on public.students;
+            drop policy if exists students_insert_self on public.students;
+            drop policy if exists students_update_self on public.students;
+            create policy students_select_self_or_admin on public.students for select to authenticated using (
+              user_id = auth.uid() or exists(select 1 from public.members m where m.user_id = auth.uid() and m.role = 'admin')
+            );
+            create policy students_insert_self on public.students for insert to authenticated with check (user_id = auth.uid());
+            create policy students_update_self on public.students for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+            `;
+            break;
+          case 'kv_policy':
+            sql = `
+            create or replace function public.is_kv_public_readable(key text) returns boolean language sql as $$
+              select (key like 'taixuanPublic%' or key in ('taixuanVipCodes','taixuanPublicClasses','taixuanMessages'));
+            $$;
+            drop policy if exists "kv_anon_public_read" on public.app_kv_store;
+            drop policy if exists "kv_auth_read_all" on public.app_kv_store;
+            create policy "kv_anon_public_read" on public.app_kv_store for select to anon using (public.is_kv_public_readable(key));
+            create policy "kv_auth_read_all" on public.app_kv_store for select to authenticated using (true);
+            `;
+            break;
+          case 'kv_trigger':
+            sql = `
+            create or replace function public.set_kv_updated_by() returns trigger language plpgsql security definer set search_path = public as $$
+            declare v_sub text; begin
+              v_sub := null;
+              if current_setting('request.jwt.claims', true) is not null then
+                v_sub := jsonb_extract_path_text(current_setting('request.jwt.claims', true)::jsonb, 'sub');
+              end if;
+              begin new.updated_by := v_sub::uuid; exception when others then new.updated_by := null; end;
+              new.updated_at := now(); return new; end; $$;
+            drop trigger if exists app_kv_set_updated_by on public.app_kv_store;
+            create trigger app_kv_set_updated_by before insert or update on public.app_kv_store for each row execute function public.set_kv_updated_by();
+            `;
+            break;
+          case 'admin':
+            sql = `
+            -- 将指定用户提升为管理员：请替换 <ADMIN_UUID>
+            insert into public.members(user_id, role) values('<ADMIN_UUID>', 'admin')
+            on conflict(user_id) do update set role = excluded.role;
+            `;
+            break;
+          default:
+            sql = '';
+        }
+        if (!sql){ alert('未找到对应 SQL'); return; }
+        robustCopy(sql, (kind || 'sql') + '.sql');
+      }
+
+      document.getElementById('btnCheck').addEventListener('click', showEnv);
+      document.getElementById('btnLogin').addEventListener('click', loginOrCreate);
+      document.getElementById('btnFix').addEventListener('click', runFix);
+      showEnv();
+      </script>
+      <script src="./repair.status.js?v=diag2"></script>
+</body>
+</html>
